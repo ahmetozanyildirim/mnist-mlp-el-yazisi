@@ -1,0 +1,13 @@
+# PyTorch: AMD GPU kullanılıyorsa README'deki ROCm komutuyla ÖNCE kurulmalı.
+# CPU veya NVIDIA kullananlar için bu iki satır PyPI'dan uygun sürümü kurar.
+torch>=2.4
+torchvision>=0.19
+
+numpy==2.5.3          # sayısal işlemler
+matplotlib==3.11.2    # loss/accuracy grafikleri
+pandas==3.0.6         # deney sonuç tabloları
+scipy==1.18.1         # kendi rakamlarımızda kütle merkezi hesabı
+opencv-python==5.0.0.93  # kendi el yazısı fotoğraflarının ön işlenmesi
+optuna==5.0.0         # ortak hiperparametre araması (Aşama 4B)
+jupyterlab==4.6.4     # notebook'ları çalıştırmak için
+ipykernel==7.4.0

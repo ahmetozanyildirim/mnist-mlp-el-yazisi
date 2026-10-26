@@ -1,0 +1,13 @@
+# Sanal ortam (her bilgisayarda yeniden kurulur, repoya girmez)
+.venv/
+
+# MNIST ham verisi (kod ilk çalıştığında otomatik indirilir)
+data/
+
+# Python ve Jupyter önbellek dosyaları
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Ara model checkpoint'leri (final model ayrıca eklenecek)
+checkpoints/
