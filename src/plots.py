@@ -49,3 +49,48 @@ def plot_histories(histories, best_epochs=None, title=None):
         fig.suptitle(title, x=0.01, ha="left", fontsize=12, fontweight="semibold", color=plot_style.INK)
     fig.tight_layout()
     return fig
+
+
+def _stack(histories, key, scale):
+    """Farklı uzunluktaki (ör. early stopping) eğrileri NaN ile doldurup tek dizide toplar."""
+    length = max(len(h) for h in histories)
+    values = np.full((len(histories), length), np.nan)
+    for i, history in enumerate(histories):
+        values[i, :len(history)] = [e[key] * scale for e in history]
+    return np.arange(1, length + 1), values
+
+
+def plot_comparison(results, title=None, loss_ylim=None):
+    """Bir karşılaştırma deneyindeki seçeneklerin validation loss ve accuracy eğrileri.
+
+    Her seçenek bir renk; çizgi seed'lerin ortalaması, gölge ± standart sapma.
+    Iraksayan veya hiç öğrenemeyen eğitimler ölçeği bozmasın diye çizilmez, açıklamada belirtilir.
+    """
+    fig, (ax_loss, ax_acc) = plt.subplots(1, 2, figsize=(10, 3.8))
+    for i, res in enumerate(results):
+        color = plot_style.SERIES[i]
+        histories = [r["history"] for r in res["runs"] if not r["failed"]]
+        if not histories:
+            reason = "ıraksadı" if any(r["diverged"] for r in res["runs"]) else "öğrenemedi, çizilmedi"
+            ax_acc.plot([], [], color=color, label=f"{res['label']} ({reason})")
+            continue
+        for ax, key, scale in ((ax_loss, "val_loss", 1), (ax_acc, "val_acc", 100)):
+            epochs, values = _stack(histories, key, scale)
+            mean = np.nanmean(values, axis=0)
+            ax.plot(epochs, mean, color=color, marker="o", markersize=3,
+                    label=res["label"] if ax is ax_acc else None)
+            if len(histories) > 1:
+                std = np.nanstd(values, axis=0, ddof=1)
+                ax.fill_between(epochs, mean - std, mean + std, color=color, alpha=0.15, linewidth=0)
+
+    for ax, label in ((ax_loss, "Validation loss"), (ax_acc, "Validation accuracy (%)")):
+        ax.set_xlabel("Epoch")
+        ax.set_title(label, loc="left")
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    if loss_ylim:
+        ax_loss.set_ylim(*loss_ylim)
+    ax_acc.legend(loc="lower right")
+    if title:
+        fig.suptitle(title, x=0.01, ha="left", fontsize=12, fontweight="semibold", color=plot_style.INK)
+    fig.tight_layout()
+    return fig

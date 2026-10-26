@@ -11,6 +11,7 @@ from model import MLP, count_parameters
 
 # Deney 1 (baseline) ayarları. Diğer deneyler yalnızca değiştirdikleri anahtarları verir.
 DEFAULT_CONFIG = {
+    "normalization": "standard",  # veri yüklenirken kullanılır (data.load_data), train() kullanmaz
     "hidden": (256, 128),
     "activation": "relu",
     "dropout": 0.0,

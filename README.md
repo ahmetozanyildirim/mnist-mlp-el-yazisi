@@ -15,7 +15,7 @@ Yapay Sinir Ağları dersi ödevi. MNIST veri seti üzerinde sıfırdan eğitile
 | Test verisi model geliştirmede kullanılmamış | ✅ kodla garanti altında | [Bölüm 3](#3-veri-seti-ve-trainvalidationtest-ayrımı) |
 | Deney 1: train/val loss, train/val accuracy, test accuracy, eğitim süresi | ✅ | [Bölüm 4.4](#44-sonuçlar) |
 | Deney 1: loss ve accuracy grafikleri | ✅ | [Bölüm 4.4](#44-sonuçlar) |
-| Model yapılandırmalarının karşılaştırılması | ⏳ | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
+| Model yapılandırmalarının karşılaştırılması | ⏳ 8 deneyden 1'i tamam (5.1 normalizasyon) | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
 | Kullanılan hiperparametreler raporda | ✅ Deney 1 / ⏳ diğer deneyler | [Bölüm 4.2](#42-hiperparametreler), Bölüm 5–7 |
 | El yazısı görüntüleri: gri, 28×28, MNIST renk uyumu, normalizasyon | ⏳ | [Bölüm 8](#8-kendi-el-yazım-ile-değerlendirme) |
 | El yazısıyla öğrenci numarası görselleri repoda | ⏳ | [`el_yazisi/`](el_yazisi/) |
@@ -67,6 +67,8 @@ Deneyleri çalıştırma (komutlar bu klasörde çalıştırılır; sonuçlar `r
 |---|---|---|
 | `python src/explore_data.py` | Veri ayrımı, sınıf dağılımı ve örnek görsel grafikleri (Bölüm 3) | birkaç saniye |
 | `python src/deney1.py` | Deney 1: baseline MLP, 3 seed × 20 epoch, test değerlendirmesi (Bölüm 4) | ~1 dakika |
+| `python src/karsilastirma.py 4a1_normalizasyon` | Normalizasyon karşılaştırması, Adam (Bölüm 5.1) | ~2.5 dakika |
+| `python src/karsilastirma.py 4a1b_normalizasyon_sgd` | Normalizasyon karşılaştırması, ek analiz: SGD (Bölüm 5.1) | ~2.5 dakika |
 
 ## 2. Proje Yapısı
 
@@ -213,7 +215,86 @@ Donanım: AMD Radeon RX 9070 XT (ROCm), PyTorch 2.14.0+rocm10.1.0, Python 3.12
 6. **Eğitim süresi.** 20 epoch GPU'da 16.5 sn sürdü. Validation loss 5. epoch civarında en düşük seviyeye indiği için 20 epoch'un büyük kısmı genellemeye katkı sağlamadı. Early stopping hem overfitting'i hem eğitim süresini azaltabilir (Bölüm 5).
 
 ## 5. Karşılaştırmalı Deneyler
-_(Aşama 4A'da doldurulacak)_
+
+Kod: [`src/karsilastirma.py`](src/karsilastirma.py) · Çalıştırma: `python src/karsilastirma.py <deney_adı>` · Ham sonuçlar: [`results/karsilastirma/`](results/karsilastirma/)
+
+### 5.0 Yöntem
+
+Deney 1'deki baseline'ın ayarları **tek tek** değiştirilerek karşılaştırıldı. Kurallar sonuçlar görülmeden önce belirlendi:
+
+1. Her deneyde yalnızca **bir** hiperparametre değişir; geri kalan her şey sabit kalır.
+2. Her seçenek 3 seed (0, 1, 2) ile 20 epoch eğitilir.
+3. **Test seti kullanılmaz;** bu deneylerde yüklenmez bile. Bütün kararlar validation setine göre verilir.
+4. **Birincil ölçüt:** en düşük validation loss'lu epoch'taki validation accuracy'nin 3 seed ortalaması. Bu, Deney 1'deki model seçimiyle aynı.
+5. **Anlamlılık eşiği: 0.3 puan.** Deney 1'de aynı ayarlarla bile seed'ler arasındaki standart sapma ~0.2 puan çıktı. 3 seed'in ortalaması bu gürültüyü azaltır ama yok etmez; bu yüzden iki ortalama arasındaki 0.3 puandan küçük farklar anlamlı kabul edilmez.
+6. Fark anlamlı değilse **ikincil ölçütlere** bakılır: yakınsama hızı (1. epoch validation accuracy), validation loss, eğitim süresi, sadelik ve sağlamlık. Bunlar da ayırt etmiyorsa mevcut ayarda kalınır.
+7. Kazanan seçenek, bir sonraki deneyin başlangıç ayarına eklenir.
+
+**Yöntemin sınırı:** Ayarları tek tek değiştirmek, ayarlar arasındaki etkileşimleri gözden kaçırabilir. Örneğin en iyi learning rate, batch boyutuna bağlı olabilir. Bu sınırlama Bölüm 6'da bütün ayarlar birlikte aranarak kontrol edilecek.
+
+| # | Deney | Seçenekler | Karar |
+|---|---|---|---|
+| 5.1 | Girdi normalizasyonu | ham / min-max / standardizasyon | **Standardizasyon** |
+| 5.2 | Loss fonksiyonu | cross-entropy / MSE / hinge | ⏳ |
+| 5.3 | Optimizer ve learning rate | SGD / momentumlu SGD / Adam, farklı LR'ler | ⏳ |
+| 5.4 | Derinlik ve genişlik | 1–4 gizli katman, farklı nöron sayıları | ⏳ |
+| 5.5 | Aktivasyon | ReLU / Sigmoid / Tanh | ⏳ |
+| 5.6 | Batch boyutu | 16 … 512 | ⏳ |
+| 5.7 | Regularization | dropout / weight decay / batch normalization | ⏳ |
+| 5.8 | Epoch sayısı, early stopping ve model seçme ölçütü | | ⏳ |
+
+### 5.1 Girdi normalizasyonu
+
+**Soru:** Piksel değerleri modele hangi ölçekte verilmeli?
+
+| Seçenek | Dönüşüm | Değer aralığı |
+|---|---|---|
+| Ham piksel | `x` | 0 … 255 |
+| Min-max | `x / 255` | 0 … 1 |
+| Standardizasyon | `(x / 255 − 0.1306) / 0.3081` | −0.42 … 2.82 (ortalama 0, std 1) |
+
+**Hipotezler:**
+- **(a) Ölçek:** Büyük girdi değerleri büyük aktivasyonlara ve gradyanlara yol açar ve eğitimi kararsızlaştırır.
+- **(b) Merkezleme:** Ortalaması 0 olan girdilerde, aynı nörona bağlı ağırlıklar aynı adımda farklı yönlere güncellenebilir; bu da yakınsamayı hızlandırır.
+- Adam her ağırlığın adım büyüklüğünü kendisi ayarladığı için ölçek sorununu kısmen telafi edebilir.
+
+**Sonuçlar (karar deneyi, Adam):**
+
+| Seçenek | Val acc | Val loss (en düşük) | 1. epoch val acc | Train acc | En iyi epoch | Eğitim süresi (20 epoch) |
+|---|---|---|---|---|---|---|
+| Ham piksel (0–255) | %96.90 ± 0.30 | 0.1255 ± 0.0052 | %94.30 ± 0.76 | %98.43 ± 0.31 | 6.3 ± 2.1 | 16.6 ± 0.2 sn |
+| Min-max (0–1) | %97.94 ± 0.19 | 0.0789 ± 0.0047 | %95.19 ± 0.44 | %99.51 ± 0.16 | 7.7 ± 1.2 | 16.6 ± 0.0 sn |
+| Standardizasyon | %97.75 ± 0.19 | 0.0792 ± 0.0032 | %95.93 ± 0.30 | %99.26 ± 0.22 | 6.0 ± 1.7 | 16.4 ± 0.1 sn |
+
+![Normalizasyon karşılaştırması (Adam)](results/karsilastirma/4a1_normalizasyon/egriler.png)
+
+**Ek analiz (karar için değil):** Bölüm 5.3'te optimizer da değiştirileceği için, normalizasyon seçiminin optimizer'a göre değişip değişmediği düz SGD (lr = 0.1) ile kontrol edildi.
+
+| Seçenek | Val acc | Val loss (en düşük) | 1. epoch val acc | Train acc | En iyi epoch | Eğitim süresi (20 epoch) |
+|---|---|---|---|---|---|---|
+| Ham piksel (0–255) | öğrenemedi (hep aynı tahmin, val acc %10.74) | – | – | – | – | – |
+| Min-max (0–1) | %97.90 ± 0.13 | 0.0725 ± 0.0017 | %90.74 ± 1.44 | %99.69 ± 0.14 | 12.3 ± 1.5 | 14.4 ± 0.0 sn |
+| Standardizasyon | %98.13 ± 0.09 | 0.0719 ± 0.0027 | %93.32 ± 2.21 | %99.93 ± 0.05 | 10.0 ± 1.0 | 14.6 ± 0.1 sn |
+
+![Normalizasyon karşılaştırması (SGD)](results/karsilastirma/4a1b_normalizasyon_sgd/egriler.png)
+
+**Ham piksel + SGD neden hiç öğrenemedi?** Bu modelin içine bakıldığında:
+- 1. gizli katmandaki nöronların **%99.6'sı**, 2. gizli katmandakilerin **%100'ü** hiçbir validation görüntüsünde aktif olmuyor (ReLU çıkışı hep 0).
+- Model 10.000 validation görüntüsünün hepsine "1" diyor. %10.74, validation setindeki "1" rakamlarının oranı.
+
+0–255 aralığındaki girdilerle ilk adımlardaki gradyanlar çok büyük çıkıyor ve lr = 0.1 ile atılan adımlar neredeyse bütün ReLU nöronlarını kalıcı olarak kapatıyor. Kapalı bir ReLU nöronundan gradyan geçmediği için ağ bir daha toparlanamıyor. Loss NaN olmuyor, rastgele tahmin seviyesinde (ln 10 ≈ 2.30) kalıyor.
+
+**Karar:**
+1. **Ham piksel elendi.** Adam ile ~1 puan kötü (anlamlı), SGD ile hiç öğrenemiyor. Hipotez (a) doğrulandı.
+2. **Min-max ile standardizasyon doğrulukta ayırt edilemedi.**
+   - Adam'da min-max 0.19 puan, SGD'de ise standardizasyon 0.23 puan önde. İkisi de 0.3 puanlık eşiğin altında.
+   - Sıralamanın optimizer'a göre değişmesi de farkın gürültüden ibaret olduğunu destekliyor.
+3. **İkincil ölçüt (yakınsama hızı) standardizasyonu gösteriyor.** Standardizasyon 1. epoch'ta her iki optimizer'da da önde: Adam'da +0.7 puan, SGD'de +2.6 puan. Bu, hipotez (b) ile uyumlu. Validation loss ve eğitim süresi iki seçenekte eşit.
+4. **Seçilen: standardizasyon** (baseline'daki ayar korunuyor).
+   - Min-max seçilmedi: doğrulukta ayırt edilemedi ama daha yavaş yakınsıyor.
+   - Ham piksel seçilmedi: Adam'da kötü, SGD'de hiç öğrenemiyor.
+
+**Sonraki deneyler için gözlem:** Düz SGD + standardizasyon, Adam + standardizasyondan daha yüksek validation accuracy'ye (%98.13'e karşı %97.75) ve daha düşük validation loss'a (0.072'ye karşı 0.079) ulaştı. SGD'nin validation loss'u Adam'daki gibi yükselmedi. Optimizer kararı Bölüm 5.3'te bu ipucu dikkate alınarak verilecek.
 
 ## 6. Ortak Hiperparametre Araması
 _(Aşama 4B–4C'de doldurulacak)_
