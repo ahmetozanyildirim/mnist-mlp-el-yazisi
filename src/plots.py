@@ -1,7 +1,7 @@
 """Eğitim sonuçlarının grafikleri."""
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.ticker import MaxNLocator
+from matplotlib.ticker import FuncFormatter, MaxNLocator, NullFormatter
 
 import plot_style
 
@@ -97,4 +97,56 @@ def plot_comparison(results, title=None, metrics=None):
     if title:
         fig.suptitle(title, x=0.01, ha="left", fontsize=12, fontweight="semibold", color=plot_style.INK)
     fig.tight_layout()
+    return fig
+
+
+def plot_lr_sweep(results, group_key, group_names, title=None):
+    """Learning rate taraması: her grup (ör. her optimizer) için learning rate'e göre validation sonuçları.
+
+    Her nokta bir ayarın seed ortalaması, hata çubuğu ± standart sapma (en düşük val loss'lu epoch'ta).
+    Iraksayan veya hiç öğrenemeyen ayarlar ölçeği bozmasın diye grafiğin altına × ile işaretlenir.
+    """
+    metrics = (("val_acc", "Validation accuracy (%)", 100), ("val_loss", "Validation loss (en düşük)", 1))
+    fig, axes = plt.subplots(1, len(metrics), figsize=(10, 3.8))
+    groups = list(dict.fromkeys(res["config"][group_key] for res in results))
+    any_failed = False
+    for i, group in enumerate(groups):
+        color = plot_style.SERIES[i]
+        members = sorted((res for res in results if res["config"][group_key] == group),
+                         key=lambda res: res["config"]["lr"])
+        for ax, (key, _, scale) in zip(axes, metrics):
+            lrs, means, stds, failed = [], [], [], []
+            for res in members:
+                values = [r[key] * scale for r in res["runs"] if not r["failed"]]
+                if not values:
+                    failed.append(res["config"]["lr"])
+                    continue
+                lrs.append(res["config"]["lr"])
+                means.append(np.mean(values))
+                stds.append(np.std(values, ddof=1) if len(values) > 1 else 0.0)
+            label = group_names.get(group, group) if ax is axes[0] else None
+            if lrs:
+                ax.errorbar(lrs, means, yerr=stds, color=color, marker="o", markersize=4, capsize=3, label=label)
+            else:
+                ax.plot([], [], color=color, marker="o", label=label)
+            if failed:
+                any_failed = True
+                ax.plot(failed, [0.04] * len(failed), linestyle="none", marker="x", markersize=8,
+                        markeredgewidth=2, color=color, transform=ax.get_xaxis_transform(), clip_on=False)
+
+    for ax, (_, label, _) in zip(axes, metrics):
+        ax.set_xscale("log")
+        ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: np.format_float_positional(v, trim="-")))
+        ax.xaxis.set_minor_formatter(NullFormatter())
+        ax.set_xlabel("Learning rate (logaritmik eksen)")
+        ax.set_title(label, loc="left")
+    # Açıklama veriyi kapatmasın diye grafiklerin altında
+    handles, labels = axes[0].get_legend_handles_labels()
+    if any_failed:
+        handles.append(plt.Line2D([], [], linestyle="none", marker="x", markeredgewidth=2, color=plot_style.MUTED))
+        labels.append("öğrenemedi / ıraksadı")
+    fig.legend(handles, labels, loc="lower center", ncol=len(labels), bbox_to_anchor=(0.5, 0))
+    if title:
+        fig.suptitle(title, x=0.01, ha="left", fontsize=12, fontweight="semibold", color=plot_style.INK)
+    fig.tight_layout(rect=(0, 0.07, 1, 1))
     return fig

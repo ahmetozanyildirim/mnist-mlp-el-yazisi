@@ -14,11 +14,12 @@ import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 import plot_style
 from data import load_data
 from device import get_device
-from plots import plot_comparison
+from plots import plot_comparison, plot_lr_sweep
 from train import DEFAULT_CONFIG, train
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent / "results" / "karsilastirma"
@@ -36,6 +37,24 @@ BASE_4A1 = {}  # Deney 1'in ayarları (train.DEFAULT_CONFIG)
 BASE_4A2 = {**BASE_4A1, "normalization": "standard"}
 # Karar 4A-2 (README 5.2): cross-entropy. Baseline'daki ayar korundu.
 BASE_4A3 = {**BASE_4A2, "loss": "cross_entropy"}
+# Karar 4A-3 (README 5.3): momentumlu SGD, lr = 0.01 (baseline: Adam, lr = 0.001).
+BASE_4A4 = {**BASE_4A3, "optimizer": "sgd_momentum", "lr": 0.01}
+
+# 4A-3: her optimizer kendine uygun bir learning rate aralığında denenir. Değerler ~3 kat aralıklı.
+# Momentumlu SGD'nin aralığı düz SGD'ninkinin 1/10'u: momentum 0.9 iken etkin adım ~lr / (1 − 0.9) = 10 × lr.
+# Adam'ın aralığı bir değer daha aşağı uzatıldı: ön denemede en iyi Adam değeri aralığın en küçüğü (0.0001) çıktı.
+OPTIMIZER_NAMES = {"sgd": "SGD", "sgd_momentum": "Momentumlu SGD", "adam": "Adam"}
+LR_GRID = {
+    "sgd": (0.01, 0.03, 0.1, 0.3),
+    "sgd_momentum": (0.001, 0.003, 0.01, 0.03),
+    "adam": (0.00003, 0.0001, 0.0003, 0.001, 0.003),
+}
+
+
+def format_lr(lr):
+    """Learning rate'i bilimsel gösterim (3e-05) yerine ondalık sayı (0.00003) olarak yazar."""
+    return np.format_float_positional(lr, trim="-")
+
 
 EXPERIMENTS = {
     "4a1_normalizasyon": {
@@ -79,6 +98,15 @@ EXPERIMENTS = {
         },
         "plot_metrics": (("train_acc", "Train accuracy (%)", 100), ("val_acc", "Validation accuracy (%)", 100)),
     },
+    "4a3_optimizer_lr": {
+        "title": "Optimizer ve learning rate",
+        "base": BASE_4A3,
+        "variants": {f"{OPTIMIZER_NAMES[opt]}, lr = {format_lr(lr)}": {"optimizer": opt, "lr": lr}
+                     for opt, lrs in LR_GRID.items() for lr in lrs},
+        # Optimizer'lar, her birinin kendi en iyi learning rate'iyle karşılaştırılır
+        "group_by": "optimizer",
+        "group_names": OPTIMIZER_NAMES,
+    },
 }
 
 
@@ -110,13 +138,18 @@ def failure_text(runs):
     return f"öğrenemedi (hep aynı tahmin, val acc %{runs[0]['val_acc'] * 100:.2f})"
 
 
-def run_experiment(name, device, seeds=SEEDS, verbose=True):
-    """Bir deneyin bütün seçeneklerini her seed ile eğitir."""
+def run_experiment(name, device, seeds=SEEDS, verbose=True, only=None):
+    """Bir deneyin bütün seçeneklerini her seed ile eğitir.
+
+    only: yalnızca bu ayarlara sahip seçenekleri eğitir (ör. {"optimizer": "sgd"}).
+    """
     experiment = EXPERIMENTS[name]
     data_cache = {}
     results = []
     for label, change in experiment["variants"].items():
         config = {**experiment["base"], **change}
+        if only and any(config.get(key) != value for key, value in only.items()):
+            continue
         normalization = config.get("normalization", DEFAULT_CONFIG["normalization"])
         if normalization not in data_cache:
             data_cache[normalization], _ = load_data(normalization=normalization, device=device)  # test yüklenmez
@@ -189,6 +222,31 @@ def ranking(results, tolerance=TOLERANCE):
     return "\n".join(lines)
 
 
+def best_per_group(results, key):
+    """Her grubun (ör. her optimizer'ın) en yüksek val accuracy'li seçeneği; hiç öğrenemeyen grup atlanır."""
+    best = {}
+    for res in results:
+        acc, _ = mean_std([r["val_acc"] for r in res["runs"] if not r["failed"]])
+        group = res["config"][key]
+        if math.isfinite(acc) and (group not in best or acc > best[group][0]):
+            best[group] = (acc, res)
+    return [res for _, res in best.values()]
+
+
+def best_lr_report(results, key, names):
+    """Her grubun en iyi learning rate'i ve bu değerin denenen aralığın kenarında olup olmadığı."""
+    lines = []
+    for res in best_per_group(results, key):
+        group, lr = res["config"][key], res["config"]["lr"]
+        tried = sorted(r["config"]["lr"] for r in results if r["config"][key] == group)
+        acc, _ = mean_std([r["val_acc"] for r in res["runs"] if not r["failed"]])
+        # En iyi değer aralığın kenarındaysa, aralığın dışında daha iyi bir değer olabilir
+        where = "aralığın KENARINDA" if lr in (tried[0], tried[-1]) else "aralığın içinde"
+        lines.append(f"{names[group]:<16} en iyi lr {format_lr(lr):<7} | val acc %{acc * 100:.2f} | "
+                     f"denenen {' / '.join(format_lr(v) for v in tried)} -> {where}")
+    return "\n".join(lines)
+
+
 def save(name, results, out_dir=None):
     out_dir = Path(out_dir) if out_dir else RESULTS_DIR / name
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -198,8 +256,19 @@ def save(name, results, out_dir=None):
     (out_dir / "sonuclar.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False, default=list),
                                            encoding="utf-8")
     loss_comparable = experiment.get("plot_metrics") is None
-    (out_dir / "tablo.md").write_text(markdown_table(results, loss_comparable) + "\n", encoding="utf-8")
-    fig = plot_comparison(results, title=f"{experiment['title']}: {len(SEEDS)} seed ortalaması ± std",
+    table = markdown_table(results, loss_comparable)
+    curves = results
+    if "group_by" in experiment:
+        # Learning rate taraması: bütün ayarların grafiği ayrı, eğriler yalnızca her grubun en iyisi için
+        fig = plot_lr_sweep(results, experiment["group_by"], experiment["group_names"],
+                            title=f"{experiment['title']}: {len(SEEDS)} seed ortalaması ± std")
+        fig.savefig(out_dir / "lr_tarama.png")
+        plt.close(fig)
+        curves = best_per_group(results, experiment["group_by"])
+        table += "\n\nEn iyi learning rate'leriyle:\n\n" + markdown_table(curves, loss_comparable)
+    (out_dir / "tablo.md").write_text(table + "\n", encoding="utf-8")
+    title = experiment["title"] + (" (en iyi learning rate'leriyle)" if "group_by" in experiment else "")
+    fig = plot_comparison(curves, title=f"{title}: {len(SEEDS)} seed ortalaması ± std",
                           metrics=experiment.get("plot_metrics"))
     fig.savefig(out_dir / "egriler.png")
     plt.close(fig)
@@ -211,8 +280,12 @@ def main():
     plot_style.apply()
     device = get_device()
     results = run_experiment(name, device)
-    loss_comparable = EXPERIMENTS[name].get("plot_metrics") is None
+    experiment = EXPERIMENTS[name]
+    loss_comparable = experiment.get("plot_metrics") is None
     print("\n" + markdown_table(results, loss_comparable) + "\n\n" + ranking(results))
+    if "group_by" in experiment:
+        print("\n" + best_lr_report(results, experiment["group_by"], experiment["group_names"]))
+        print("\n" + ranking(best_per_group(results, experiment["group_by"])))
     print("\nKaydedildi:", save(name, results))
 
 

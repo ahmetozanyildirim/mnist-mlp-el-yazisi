@@ -10,17 +10,17 @@ Yapay Sinir Ağları dersi ödevi. MNIST veri seti üzerinde sıfırdan eğitile
 |---|---|---|
 | Model MLP (CNN yok), hazır model yok, sıfırdan eğitim | ✅ | [Bölüm 4.1](#41-model) |
 | En az 2 gizli katman, ReLU aktivasyonu | ✅ | [Bölüm 4.1](#41-model) |
-| Uygun sınıflandırma loss'u, SGD veya Adam | ✅ cross-entropy (MSE ve hinge ile karşılaştırıldı) + Adam / ⏳ optimizer karşılaştırması | [Bölüm 4.2](#42-hiperparametreler), [Bölüm 5.2](#52-loss-fonksiyonu), [Bölüm 5](#5-karşılaştırmalı-deneyler) |
+| Uygun sınıflandırma loss'u, SGD veya Adam | ✅ cross-entropy (MSE ve hinge ile karşılaştırıldı) + momentumlu SGD (düz SGD ve Adam ile karşılaştırıldı) | [Bölüm 4.2](#42-hiperparametreler), [Bölüm 5.2](#52-loss-fonksiyonu), [Bölüm 5.3](#53-optimizer-ve-learning-rate) |
 | Train / validation / test ayrımı açıkça gösterilmiş | ✅ | [Bölüm 3](#3-veri-seti-ve-trainvalidationtest-ayrımı) |
 | Test verisi model geliştirmede kullanılmamış | ✅ kodla garanti altında | [Bölüm 3](#3-veri-seti-ve-trainvalidationtest-ayrımı) |
 | Deney 1: train/val loss, train/val accuracy, test accuracy, eğitim süresi | ✅ | [Bölüm 4.4](#44-sonuçlar) |
 | Deney 1: loss ve accuracy grafikleri | ✅ | [Bölüm 4.4](#44-sonuçlar) |
-| Model yapılandırmalarının karşılaştırılması | ⏳ 8 deneyden 2'si tamam (5.1 normalizasyon, 5.2 loss) | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
+| Model yapılandırmalarının karşılaştırılması | ⏳ 8 deneyden 3'ü tamam (5.1 normalizasyon, 5.2 loss, 5.3 optimizer ve learning rate) | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
 | Kullanılan hiperparametreler raporda | ✅ Deney 1 / ⏳ diğer deneyler | [Bölüm 4.2](#42-hiperparametreler), Bölüm 5–7 |
 | El yazısı görüntüleri: gri, 28×28, MNIST renk uyumu, normalizasyon | ⏳ | [Bölüm 8](#8-kendi-el-yazım-ile-değerlendirme) |
 | El yazısıyla öğrenci numarası görselleri repoda | ⏳ | [`el_yazisi/`](el_yazisi/) |
 | Deney sonuçları hakkında genel değerlendirme | ⏳ | [Bölüm 9](#9-genel-değerlendirme) |
-| Kodun çalıştırılabilir olması | ✅ kurulum, veri, Deney 1, Bölüm 5.1–5.2 / ⏳ diğer deneyler | [Bölüm 1](#1-ortam-ve-kurulum) |
+| Kodun çalıştırılabilir olması | ✅ kurulum, veri, Deney 1, Bölüm 5.1–5.3 / ⏳ diğer deneyler | [Bölüm 1](#1-ortam-ve-kurulum) |
 
 ## İçindekiler
 1. [Ortam ve Kurulum](#1-ortam-ve-kurulum)
@@ -71,6 +71,7 @@ Deneyleri çalıştırma (komutlar bu klasörde çalıştırılır; sonuçlar `r
 | `python src/karsilastirma.py 4a1b_normalizasyon_sgd` | Normalizasyon karşılaştırması, ek analiz: SGD (Bölüm 5.1) | ~2.5 dakika |
 | `python src/karsilastirma.py 4a2_loss` | Loss fonksiyonu karşılaştırması, Adam (Bölüm 5.2) | ~3 dakika |
 | `python src/karsilastirma.py 4a2b_loss_sgd` | Loss fonksiyonu karşılaştırması, ek analiz: SGD (Bölüm 5.2) | ~2.5 dakika |
+| `python src/karsilastirma.py 4a3_optimizer_lr` | Optimizer ve learning rate karşılaştırması: 3 optimizer × 4–5 learning rate (Bölüm 5.3) | ~12 dakika |
 
 ## 2. Proje Yapısı
 
@@ -238,7 +239,7 @@ Deney 1'deki baseline'ın ayarları **tek tek** değiştirilerek karşılaştır
 |---|---|---|---|
 | 5.1 | Girdi normalizasyonu | ham / min-max / standardizasyon | **Standardizasyon** |
 | 5.2 | Loss fonksiyonu | cross-entropy / MSE / hinge | **Cross-entropy** |
-| 5.3 | Optimizer ve learning rate | SGD / momentumlu SGD / Adam, farklı LR'ler | ⏳ |
+| 5.3 | Optimizer ve learning rate | SGD / momentumlu SGD / Adam, her biri 4–5 learning rate ile | **Momentumlu SGD, lr = 0.01** |
 | 5.4 | Derinlik ve genişlik | 1–4 gizli katman, farklı nöron sayıları | ⏳ |
 | 5.5 | Aktivasyon | ReLU / Sigmoid / Tanh | ⏳ |
 | 5.6 | Batch boyutu | 16 … 512 | ⏳ |
@@ -385,6 +386,127 @@ Her seçeneğin loss'u farklı bir ölçekte olduğu için validation loss değe
 **Not – aynı ayarın tekrarları:** Adam + cross-entropy + standardizasyon ayarı Deney 1'de %97.83, Bölüm 5.1'de %97.75, burada %97.68 verdi. SGD + cross-entropy + standardizasyon ayarı ise 5.1'de %98.13, burada %98.03 verdi. Aynı ayarın farklı çalıştırmaları arasında 0.15 puana varan bu farklar, GPU'daki tekrarlanamazlıktan kaynaklanıyor (Bölüm 4.3). Bu da 0.3 puanlık anlamlılık eşiğinin neden gerekli olduğunu gösteriyor.
 
 **Sonraki deneyler için gözlem:** Düz SGD + cross-entropy bu deneyde de Adam + cross-entropy'den yüksek çıktı (%98.03'e karşı %97.68). Böylece SGD iki ayrı deneyde Adam'ın önüne geçmiş oldu. Optimizer kararı Bölüm 5.3'te verilecek.
+
+### 5.3 Optimizer ve learning rate
+
+**Soru:** Ağırlıklar hangi kuralla güncellenmeli ve adımlar ne büyüklükte (learning rate) olmalı?
+
+| Seçenek | Güncelleme kuralı | PyTorch |
+|---|---|---|
+| SGD | `w ← w − lr · g` | `torch.optim.SGD(lr)` |
+| Momentumlu SGD | `v ← 0.9 · v + g`, sonra `w ← w − lr · v` | `torch.optim.SGD(lr, momentum=0.9)` |
+| Adam | `w ← w − lr · m / (√s + ε)` | `torch.optim.Adam(lr)`, β₁ = 0.9, β₂ = 0.999 (varsayılan) |
+
+*`g`: mini-batch'in gradyanı. Adam'da `m` gradyanın, `s` gradyanın karesinin hareketli ortalamasıdır (başlangıç düzeltmesiyle).*
+
+- **SGD:** Adım gradyanla orantılı.
+- **Momentumlu SGD:** Gradyanlar `v`'de birikir. Gradyan aynı yönü gösterdikçe adım büyür ve düz SGD'deki adımın `1 / (1 − 0.9) = 10` katına çıkar. Yönü adımdan adıma değişen gürültülü bileşenler ise birbirini götürür.
+- **Adam:** Her ağırlığın adımı, o ağırlığın gradyan büyüklüğüne bölünür. Bu yüzden adım, gradyan ne kadar büyük ya da küçük olursa olsun ~`lr` civarında kalır.
+
+Aynı gradyan her adımda tekrar verildiğinde ağırlığın toplam değişimi (değerler yukarıdaki kurallardan hesaplandı):
+
+| Gradyan | SGD (lr 0.1)<br>1 adım / 10 adım | Momentumlu SGD (lr 0.01)<br>1 adım / 10 adım | Adam (lr 0.001)<br>1 adım / 10 adım |
+|---|---|---|---|
+| 0.01 | 0.001 / 0.01 | 0.0001 / 0.0041 | 0.001 / 0.01 |
+| 1 | 0.1 / 1 | 0.01 / 0.41 | 0.001 / 0.01 |
+| 100 | 10 / 100 | 1 / 41.4 | 0.001 / 0.01 |
+
+Adam'ın adımı gradyandan bağımsız. Bölüm 5.1 ve 5.2'de Adam'ın sorunlu girdi ölçeğini ve MSE'nin küçük gradyanlarını telafi etmesinin sebebi bu.
+
+**Neden learning rate ile birlikte?** Her optimizer'ın uygun learning rate'i farklı. Örneğin Adam'ın varsayılan değeri olan 0.001, düz SGD için çok küçük. Optimizer'ları tek bir ortak learning rate ile karşılaştırmak, en az birini kendine uygun olmayan bir ayarda denemek demek. Bu yüzden her optimizer kendi aralığında, ~3 kat aralıklı değerlerle denendi ve her biri **kendi en iyi learning rate'iyle** karşılaştırıldı.
+
+| Optimizer | Denenen learning rate'ler | Gerekçe |
+|---|---|---|
+| SGD | 0.01 / 0.03 / 0.1 / 0.3 | Bölüm 5.1–5.2'de lr 0.1 iyi çalıştı; iki yöne de genişletildi |
+| Momentumlu SGD | 0.001 / 0.003 / 0.01 / 0.03 | Etkin adım ~10 × lr olduğu için SGD aralığının 1/10'u |
+| Adam | 0.00003 / 0.0001 / 0.0003 / 0.001 / 0.003 | Varsayılan değer olan 0.001'in etrafı, aşağı yönde bir değer uzatılmış |
+
+- **Aralık neden aşağı uzatıldı:** En iyi değer denenen aralığın kenarında çıkarsa gerçek en iyi değer aralığın dışında olabilir.
+  - Ön denemede Adam'ın en iyi değeri aralığın alt kenarında (0.0001) çıktı. Bu yüzden 0.00003 eklendi.
+  - 0.00003'ün belirgin şekilde kötü olduğu görüldü (aşağıdaki tablo).
+  - Sonuçta üç optimizer'ın da en iyi değeri aralığın içinde.
+- **Toplam:** 13 ayar × 3 seed = 39 eğitim. Diğer bütün ayarlar Bölüm 5.2 sonundaki gibi: standardizasyon, cross-entropy.
+
+**Sonuçlar:**
+
+| Seçenek | Val acc | Val loss (en düşük) | 1. epoch val acc | Train acc | En iyi epoch | Eğitim süresi (20 epoch) |
+|---|---|---|---|---|---|---|
+| SGD, lr = 0.01 | %97.32 ± 0.09 | 0.0901 ± 0.0029 | %89.15 ± 0.18 | %98.60 ± 0.02 | 20.0 ± 0.0 | 14.4 ± 0.2 sn |
+| SGD, lr = 0.03 | %97.89 ± 0.12 | 0.0720 ± 0.0021 | %91.76 ± 0.57 | %99.84 ± 0.16 | 17.3 ± 3.1 | 14.2 ± 0.1 sn |
+| SGD, lr = 0.1 | %98.14 ± 0.09 | 0.0728 ± 0.0017 | %93.94 ± 1.15 | %99.96 ± 0.04 | 11.0 ± 1.7 | 14.3 ± 0.0 sn |
+| SGD, lr = 0.3 | %97.66 ± 0.15 | 0.0836 ± 0.0039 | %96.16 ± 0.21 | %99.24 ± 0.28 | 4.7 ± 1.5 | 14.3 ± 0.1 sn |
+| Momentumlu SGD, lr = 0.001 | %97.33 ± 0.10 | 0.0903 ± 0.0035 | %89.14 ± 0.06 | %98.58 ± 0.01 | 20.0 ± 0.0 | 14.9 ± 0.2 sn |
+| Momentumlu SGD, lr = 0.003 | %97.83 ± 0.02 | 0.0717 ± 0.0025 | %92.10 ± 0.11 | %99.79 ± 0.09 | 15.7 ± 1.5 | 14.7 ± 0.1 sn |
+| Momentumlu SGD, lr = 0.01 | %98.10 ± 0.18 | 0.0710 ± 0.0016 | %95.10 ± 0.48 | %99.92 ± 0.10 | 9.7 ± 1.5 | 14.7 ± 0.0 sn |
+| Momentumlu SGD, lr = 0.03 | %97.79 ± 0.22 | 0.0835 ± 0.0059 | %96.02 ± 0.70 | %99.41 ± 0.38 | 6.0 ± 1.7 | 14.8 ± 0.0 sn |
+| Adam, lr = 0.00003 | %96.54 ± 0.12 | 0.1165 ± 0.0041 | %88.32 ± 0.21 | %97.56 ± 0.11 | 20.0 ± 0.0 | 16.5 ± 0.1 sn |
+| Adam, lr = 0.0001 | %97.87 ± 0.09 | 0.0725 ± 0.0017 | %91.78 ± 0.11 | %99.65 ± 0.11 | 17.7 ± 1.2 | 16.5 ± 0.1 sn |
+| Adam, lr = 0.0003 | %97.75 ± 0.12 | 0.0735 ± 0.0047 | %94.23 ± 0.18 | %99.51 ± 0.18 | 8.3 ± 1.2 | 16.5 ± 0.1 sn |
+| Adam, lr = 0.001 | %97.80 ± 0.06 | 0.0756 ± 0.0060 | %95.96 ± 0.31 | %99.22 ± 0.16 | 5.3 ± 1.5 | 16.5 ± 0.1 sn |
+| Adam, lr = 0.003 | %97.25 ± 0.26 | 0.1069 ± 0.0007 | %95.57 ± 0.75 | %98.57 ± 0.34 | 5.3 ± 1.2 | 16.5 ± 0.1 sn |
+
+![Learning rate taraması](results/karsilastirma/4a3_optimizer_lr/lr_tarama.png)
+
+*Her nokta bir ayarın 3 seed ortalaması (en düşük validation loss'lu epoch'ta), hata çubukları ± standart sapma. Yatay eksen logaritmik.*
+
+Her optimizer'ın en iyi learning rate'iyle:
+
+| Seçenek | Val acc | Val loss (en düşük) | 1. epoch val acc | Train acc | En iyi epoch | Eğitim süresi (20 epoch) |
+|---|---|---|---|---|---|---|
+| SGD, lr = 0.1 | %98.14 ± 0.09 | 0.0728 ± 0.0017 | %93.94 ± 1.15 | %99.96 ± 0.04 | 11.0 ± 1.7 | 14.3 ± 0.0 sn |
+| Momentumlu SGD, lr = 0.01 | %98.10 ± 0.18 | 0.0710 ± 0.0016 | %95.10 ± 0.48 | %99.92 ± 0.10 | 9.7 ± 1.5 | 14.7 ± 0.0 sn |
+| Adam, lr = 0.0001 | %97.87 ± 0.09 | 0.0725 ± 0.0017 | %91.78 ± 0.11 | %99.65 ± 0.11 | 17.7 ± 1.2 | 16.5 ± 0.1 sn |
+
+![Optimizer karşılaştırması (en iyi learning rate'leriyle)](results/karsilastirma/4a3_optimizer_lr/egriler.png)
+
+- **Momentumlu SGD'nin eğrisi, düz SGD'ninkinin 10 kat sola kaymış hâli.**
+  - Düz SGD'de lr ile momentumlu SGD'de lr / 10 her seferinde neredeyse aynı sonucu veriyor: %97.32 ↔ %97.33, %97.89 ↔ %97.83, %98.14 ↔ %98.10, %97.66 ↔ %97.79.
+  - Bu, momentum 0.9'un etkin adımı 10 katına çıkardığı öngörüsünü doğruluyor. İki optimizer da en iyi sonucu aynı etkin adımda (0.1) veriyor.
+- **Adam learning rate'e en az duyarlı olan.**
+  - 0.0001 ile 0.001 arasında (10 kat) sonuç %97.75–97.87 aralığında kalıyor.
+  - SGD ve momentumlu SGD'de en iyi değerden 3 kat uzaklaşınca 0.25–0.48 puan kayboluyor.
+  - Ancak Adam'ın en iyisi, diğer ikisinin en iyisine ulaşmıyor.
+- **Adam'da learning rate, overfitting'in ne zaman başladığını belirliyor.**
+  - lr 0.001'de en iyi epoch 5.3; sonrasında validation loss Deney 1'deki gibi yükseliyor.
+  - lr 0.0001'de en iyi epoch 17.7. Overfitting gecikiyor ama model 20 epoch sınırına dayanıyor.
+- **Düz SGD'de ani düşüş var, momentumlu SGD'de yok.**
+  - SGD lr 0.1'de seed 2'nin validation accuracy'si 6. epoch'taki %97.5'ten 8. epoch'ta %96.0'a düşüyor ve 9. epoch'ta %97.9'a dönüyor (grafikte mavi gölgenin genişlediği yer). Aynı düşüş ön denemelerde de görüldü.
+  - Momentumlu SGD'de böyle bir düşüş yok.
+  - Olası açıklama: İki optimizer'ın etkin adımı aynı. Ancak momentum, gradyanları ~10 adım boyunca biriktirerek tek tek mini-batch'lerin gürültüsünü azaltıyor.
+
+**Karar:**
+1. **Birincil ölçüt üç optimizer'ı ayırt etmiyor.**
+   - En iyi learning rate'leriyle: SGD %98.14, momentumlu SGD %98.10 (0.04 puan geride), Adam %97.87 (0.27 puan geride).
+   - Farkların hepsi 0.3 puanlık eşiğin altında. Adam'ın farkı sınıra yakın.
+2. **İkincil ölçütler:**
+
+   | Ölçüt | SGD (lr 0.1) | Momentumlu SGD (lr 0.01) | Adam (lr 0.0001) |
+   |---|---|---|---|
+   | Yakınsama hızı (1. epoch val acc) | %93.94 ± 1.15 | **%95.10 ± 0.48** | %91.78 ± 0.11 |
+   | Val loss (en düşük) | 0.0728 | 0.0710 | 0.0725 |
+   | Eğitim süresi (20 epoch) | **14.3 sn** | 14.7 sn | 16.5 sn |
+   | Sadelik (ek hiperparametre) | **yok** | momentum (0.9) | β₁, β₂, ε (varsayılan) |
+   | Kararlılık | seed 2'de 1.6 puanlık ani düşüş | **pürüzsüz** | **pürüzsüz** |
+   | Learning rate'e duyarlılık | 3 kat uzakta 0.25 / 0.48 puan kayıp | 3 kat uzakta 0.27 / 0.31 puan kayıp | **10 kat aralıkta ±0.1 puan** |
+
+   - **Yakınsama hızı** momentumlu SGD'yi gösteriyor: 1. epoch'ta düz SGD'den 1.2, Adam'dan 3.3 puan önde. Aynı sıralama ön denemelerde de görüldü.
+   - **Validation loss** farkları standart sapma (~0.002) düzeyinde; ayırt etmiyor.
+   - **Eğitim süresi:** Momentumlu SGD düz SGD'den %3 yavaş, Adam ise %15 yavaş. Adam her ağırlık için iki hareketli ortalama tuttuğu için en çok hesabı yapıyor.
+   - **Sadelik** düz SGD'nin, **learning rate'e duyarlılık** ise Adam'ın lehine.
+3. **Seçilen: momentumlu SGD, lr = 0.01.**
+   - Düz SGD seçilmedi: doğrulukta eşit, ama daha yavaş yakınsıyor ve eğitimi daha az kararlı.
+   - Adam seçilmedi: doğrulukta eşiğin sınırında geride. En iyi learning rate'inde en yavaş yakınsayan ve en uzun süren seçenek.
+   - Ödev şartı açısından: momentumlu SGD, `torch.optim.SGD`'nin momentum parametresiyle kullanılmış hâli. Yani "SGD veya Adam" şartı karşılanıyor.
+
+**Sınırlar:**
+- Momentum (0.9) ve Adam'ın β değerleri sabit tutuldu; ayarlanmadı.
+- 20 epoch sınırı, düşük learning rate'leri dezavantajlı bırakıyor.
+  - SGD lr 0.01 ve momentumlu SGD lr 0.001'de üç seed'in de en iyi epoch'u 20; Adam lr 0.0001'de ortalama 17.7.
+  - Bu ayarlar daha uzun eğitimde yükselebilir. Epoch sayısı Bölüm 5.8'de ele alınacak.
+- Learning rate eğitim boyunca sabit; zamanla azalan learning rate denenmedi.
+- En iyi learning rate batch boyutuna bağlı olabilir (Bölüm 5.6). Optimizer, learning rate ve momentum Bölüm 6'da diğer ayarlarla birlikte yeniden aranacak.
+
+**Not – aynı ayarın tekrarları:** Düz SGD lr 0.1 burada %98.14 verdi (5.1'de %98.13, 5.2'de %98.03). Adam lr 0.001 ise %97.80 verdi (Deney 1'de %97.83, 5.1'de %97.75, 5.2'de %97.68). Tekrarlar arasındaki farklar yine 0.15 puanın içinde.
 
 ## 6. Ortak Hiperparametre Araması
 _(Aşama 4B–4C'de doldurulacak)_
