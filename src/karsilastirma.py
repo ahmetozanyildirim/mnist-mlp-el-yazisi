@@ -34,6 +34,8 @@ TOLERANCE = 0.003
 BASE_4A1 = {}  # Deney 1'in ayarları (train.DEFAULT_CONFIG)
 # Karar 4A-1 (README 5.1): standardizasyon. Baseline'daki ayar korundu.
 BASE_4A2 = {**BASE_4A1, "normalization": "standard"}
+# Karar 4A-2 (README 5.2): cross-entropy. Baseline'daki ayar korundu.
+BASE_4A3 = {**BASE_4A2, "loss": "cross_entropy"}
 
 EXPERIMENTS = {
     "4a1_normalizasyon": {
@@ -54,6 +56,28 @@ EXPERIMENTS = {
             "Min-max (0–1)": {"normalization": "minmax"},
             "Standardizasyon": {"normalization": "standard"},
         },
+    },
+    "4a2_loss": {
+        "title": "Loss fonksiyonu",
+        "base": BASE_4A2,
+        "variants": {
+            "Cross-entropy": {"loss": "cross_entropy"},
+            "MSE (softmax + one-hot)": {"loss": "mse"},
+            "Hinge (multi-margin)": {"loss": "multi_margin"},
+        },
+        # Loss değerleri farklı ölçeklerde, birbiriyle kıyaslanamaz; grafikte accuracy çizilir
+        "plot_metrics": (("train_acc", "Train accuracy (%)", 100), ("val_acc", "Validation accuracy (%)", 100)),
+    },
+    # Ek analiz (karar için değil): Adam küçük gradyanları telafi ediyor olabilir; düz SGD'de fark açılıyor mu?
+    "4a2b_loss_sgd": {
+        "title": "Loss fonksiyonu (ek analiz: düz SGD, lr = 0.1)",
+        "base": {**BASE_4A2, "optimizer": "sgd", "lr": 0.1},
+        "variants": {
+            "Cross-entropy": {"loss": "cross_entropy"},
+            "MSE (softmax + one-hot)": {"loss": "mse"},
+            "Hinge (multi-margin)": {"loss": "multi_margin"},
+        },
+        "plot_metrics": (("train_acc", "Train accuracy (%)", 100), ("val_acc", "Validation accuracy (%)", 100)),
     },
 }
 
@@ -116,10 +140,14 @@ def mean_std(values):
     return statistics.mean(values), statistics.stdev(values) if len(values) > 1 else 0.0
 
 
-def markdown_table(results):
-    """Seçeneklerin karşılaştırma tablosu (3 seed ortalaması ± std, en düşük val loss'lu epoch'ta)."""
+def markdown_table(results, loss_comparable=True):
+    """Seçeneklerin karşılaştırma tablosu (3 seed ortalaması ± std, en düşük val loss'lu epoch'ta).
+
+    loss_comparable=False: seçenekler farklı loss fonksiyonları kullanıyorsa loss sütunu kıyaslanamaz.
+    """
     epochs = DEFAULT_CONFIG["epochs"]
-    lines = [f"| Seçenek | Val acc | Val loss (en düşük) | 1. epoch val acc | Train acc | En iyi epoch | "
+    loss_header = "Val loss (en düşük)" if loss_comparable else "Val loss (her biri kendi loss'u, kıyaslanamaz)"
+    lines = [f"| Seçenek | Val acc | {loss_header} | 1. epoch val acc | Train acc | En iyi epoch | "
              f"Eğitim süresi ({epochs} epoch) |",
              "|---|---|---|---|---|---|---|"]
     for res in results:
@@ -169,8 +197,10 @@ def save(name, results, out_dir=None):
                "temel_ayar": {**DEFAULT_CONFIG, **experiment["base"]}, "secenekler": results}
     (out_dir / "sonuclar.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False, default=list),
                                            encoding="utf-8")
-    (out_dir / "tablo.md").write_text(markdown_table(results) + "\n", encoding="utf-8")
-    fig = plot_comparison(results, title=f"{experiment['title']}: {len(SEEDS)} seed ortalaması ± std")
+    loss_comparable = experiment.get("plot_metrics") is None
+    (out_dir / "tablo.md").write_text(markdown_table(results, loss_comparable) + "\n", encoding="utf-8")
+    fig = plot_comparison(results, title=f"{experiment['title']}: {len(SEEDS)} seed ortalaması ± std",
+                          metrics=experiment.get("plot_metrics"))
     fig.savefig(out_dir / "egriler.png")
     plt.close(fig)
     return out_dir
@@ -181,7 +211,8 @@ def main():
     plot_style.apply()
     device = get_device()
     results = run_experiment(name, device)
-    print("\n" + markdown_table(results) + "\n\n" + ranking(results))
+    loss_comparable = EXPERIMENTS[name].get("plot_metrics") is None
+    print("\n" + markdown_table(results, loss_comparable) + "\n\n" + ranking(results))
     print("\nKaydedildi:", save(name, results))
 
 
