@@ -1,0 +1,34 @@
+{
+  "kaynak": "4A sonucu",
+  "aciklama": "2 × 256, mSGD (m = 0.90), lr 0.08, batch 512, dropout 0.00, wd 0e+00, veri artırma hafif",
+  "val_acc_ortalama": 0.9889,
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "ayar": {
+    "normalization": "standard",
+    "hidden": [
+      256,
+      256
+    ],
+    "activation": "relu",
+    "dropout": 0.0,
+    "batchnorm": false,
+    "loss": "cross_entropy",
+    "optimizer": "sgd_momentum",
+    "lr": 0.08,
+    "momentum": 0.9,
+    "weight_decay": 0.0,
+    "batch_size": 512,
+    "epochs": 100,
+    "patience": 5,
+    "select_by": "val_loss",
+    "augment": {
+      "rotation": 10,
+      "shift": 2,
+      "scale": 0.1
+    }
+  }
+}

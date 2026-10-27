@@ -15,12 +15,12 @@ Yapay Sinir Ağları dersi ödevi. MNIST veri seti üzerinde sıfırdan eğitile
 | Test verisi model geliştirmede kullanılmamış | ✅ kodla garanti altında | [Bölüm 3](#3-veri-seti-ve-trainvalidationtest-ayrımı) |
 | Deney 1: train/val loss, train/val accuracy, test accuracy, eğitim süresi | ✅ | [Bölüm 4.4](#44-sonuçlar) |
 | Deney 1: loss ve accuracy grafikleri | ✅ | [Bölüm 4.4](#44-sonuçlar) |
-| Model yapılandırmalarının karşılaştırılması | ⏳ 8 tek değişkenli deneyin hepsi tamam (5.1 normalizasyon, 5.2 loss, 5.3 optimizer ve learning rate, 5.4 derinlik ve genişlik, 5.5 aktivasyon, 5.6 batch boyutu, 5.7 regularization, 5.8 epoch sayısı ve early stopping); ortak arama: 60 deneme tamam (6.2), doğrulama sırada | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
-| Kullanılan hiperparametreler raporda | ✅ Deney 1 / ⏳ diğer deneyler | [Bölüm 4.2](#42-hiperparametreler), Bölüm 5–7 |
+| Model yapılandırmalarının karşılaştırılması | ✅ 8 tek değişkenli deney (5.1 normalizasyon, 5.2 loss, 5.3 optimizer ve learning rate, 5.4 derinlik ve genişlik, 5.5 aktivasyon, 5.6 batch boyutu, 5.7 regularization, 5.8 epoch sayısı ve early stopping) + 60 denemelik ortak arama ve en iyilerin yeni seed'lerle doğrulanması (Bölüm 6) | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
+| Kullanılan hiperparametreler raporda | ✅ Deney 1, Bölüm 5 ve 6 / ⏳ final model | [Bölüm 4.2](#42-hiperparametreler), Bölüm 5–7 |
 | El yazısı görüntüleri: gri, 28×28, MNIST renk uyumu, normalizasyon | ⏳ | [Bölüm 8](#8-kendi-el-yazım-ile-değerlendirme) |
 | El yazısıyla öğrenci numarası görselleri repoda | ⏳ | [`el_yazisi/`](el_yazisi/) |
 | Deney sonuçları hakkında genel değerlendirme | ⏳ | [Bölüm 9](#9-genel-değerlendirme) |
-| Kodun çalıştırılabilir olması | ✅ kurulum, veri, Deney 1, Bölüm 5.1–5.8, 6.2 / ⏳ diğer aşamalar | [Bölüm 1](#1-ortam-ve-kurulum) |
+| Kodun çalıştırılabilir olması | ✅ kurulum, veri, Deney 1, Bölüm 5 ve 6 / ⏳ diğer aşamalar | [Bölüm 1](#1-ortam-ve-kurulum) |
 
 ## İçindekiler
 1. [Ortam ve Kurulum](#1-ortam-ve-kurulum)
@@ -78,6 +78,7 @@ Deneyleri çalıştırma (komutlar bu klasörde çalıştırılır; sonuçlar `r
 | `python src/karsilastirma.py 4a7_regularization` | Regularization: dropout / weight decay / batch normalization / veri artırma, farklı güçlerde (Bölüm 5.7) | ~1.5 dakika |
 | `python src/karsilastirma.py 4a8_epoch` | Epoch sayısı, early stopping ve seçim ölçütü: 100 epoch × 3 seed, 10 kural (Bölüm 5.8) | ~1 dakika |
 | `python src/arama.py ara` | Ortak arama: rastgele arama ve TPE, 30'ar deneme (Bölüm 6.2) | ~22 dakika |
+| `python src/arama.py dogrula` | En iyi 5 ayar + 4A'nın sonucu, 3 yeni seed'le; final ayarı seçer (Bölüm 6.3) | ~13 dakika |
 
 ## 2. Proje Yapısı
 
@@ -1117,7 +1118,72 @@ Sayılar, 50 farklı denemenin (ortak ilk 10 bir kez sayıldı) başarılı 49'u
 **Ara sonuç:** Arama, 4A'nın sonucundan (2 × 256, batch 512, yalnızca veri artırma) farklı bir bölge buldu: daha büyük modeller, küçük batch ve birlikte kullanılan birkaç regularization yöntemi. Ama skorlar tek seed'lik ve 60 denemenin en iyileri seçildiği için iyimser. Bu ayarların 4A'nın sonucundan gerçekten daha iyi olup olmadığı Bölüm 6.3'te yeni seed'lerle ölçüldü.
 
 ### 6.3 En iyi ayarların yeni seed'lerle doğrulanması
-_(Aşama 4C'de doldurulacak)_
+
+**Neden?** Aramadaki her deneme tek bir seed'le eğitildi. Aynı ayar farklı bir seed'le ±0.1–0.2 puan farklı sonuç verebiliyor. 60 sayının en büyükleri seçildiğinde, şansı yaver gitmiş denemeler de seçilir. Buna **kazananın laneti** (winner's curse) denir: en iyi denemenin skoru, o ayarın gerçek ortalamasından yüksek çıkar.
+
+**Yöntem:**
+- Aramada tek seed'le en yüksek validation accuracy'yi veren 5 farklı ayar ve karşılaştırma için 4A'nın sonucu (Bölüm 5.8 sonundaki ayar), aramada **hiç kullanılmamış** 3 yeni seed (1, 2, 3) ile yeniden eğitildi: 6 × 3 = 18 eğitim.
+- **Seçim kuralı (sonuçlardan önce belirlendi; Bölüm 5.4 ile aynı):** En iyiye 0.3 puandan yakın ayarlardan **en az parametreli** olan seçilir; parametre sayısı eşitse doğruluğu yüksek olan. Eşit derecede iyi modellerden en sadesi: daha hızlı eğitilir ve çalışır, ezberlemeye daha az eğilimlidir.
+
+**Kazananın laneti:**
+
+| Ayar | Aramada (tek seed) | Yeniden ölçüm (3 yeni seed) | Fark |
+|---|---|---|---|
+| TPE #26 | %99.29 | %99.15 | −0.14 |
+| TPE #22 | %99.26 | %99.14 | −0.12 |
+| TPE #28 | %99.22 | %99.00 | −0.22 |
+| TPE #27 | %99.17 | %99.08 | −0.09 |
+| TPE #23 | %99.16 | %99.18 | +0.02 |
+
+- Beş ayarın dördünün skoru düştü; ortalama düşüş 0.11 puan. 60 denemenin en iyilerini seçerken şanslı seed'leri de seçmiştik; yeni seed'lerde o şans yok (ortalamaya doğru geri dönüş).
+- **Sıralama değişti:** Aramada beşinci olan TPE #23 yeniden ölçümde birinci; aramanın birincisi (TPE #26) ikinci. Yeniden ölçmeden seçseydik, gerçekte en iyi olmayan bir ayarı seçmiş olabilirdik.
+
+**Sonuçlar:**
+
+- **TPE #26:** 2 × 1024, Adam, lr 0.00022, batch 64, dropout 0.30, wd 1e-06, BN, veri artırma hafif
+- **TPE #22:** 2 × 1024, mSGD (m = 0.94), lr 0.03, batch 64, dropout 0.38, wd 2e-05, BN, veri artırma hafif
+- **TPE #28:** 3 × 1024, Adam, lr 0.00021, batch 64, dropout 0.26, wd 2e-05, BN, veri artırma hafif
+- **TPE #27:** 3 × 1024, Adam, lr 0.00021, batch 64, dropout 0.22, wd 5e-05, BN, veri artırma hafif
+- **TPE #23:** 2 × 1024, mSGD (m = 0.94), lr 0.026, batch 64, dropout 0.30, wd 3e-05, BN, veri artırma hafif
+- **4A sonucu:** 2 × 256, mSGD (m = 0.90), lr 0.08, batch 512, dropout 0, weight decay 0, veri artırma hafif
+
+| Seçenek | Parametre | Val acc | Val loss (en düşük) | 1. epoch val acc | Train acc | En iyi epoch | Eğitim süresi |
+|---|---|---|---|---|---|---|---|
+| TPE #26 | 1 867 786 | %99.15 ± 0.04 | 0.0275 ± 0.0010 | %96.53 ± 0.16 | %99.43 ± 0.11 | 27.0 ± 5.0 | 43.1 ± 6.7 sn |
+| TPE #22 | 1 867 786 | %99.14 ± 0.06 | 0.0269 ± 0.0012 | %96.01 ± 0.29 | %99.45 ± 0.05 | 28.7 ± 4.9 | 43.0 ± 8.0 sn |
+| TPE #28 | 2 919 434 | %99.00 ± 0.08 | 0.0293 ± 0.0023 | %96.63 ± 0.27 | %99.24 ± 0.15 | 19.3 ± 3.8 | 38.2 ± 5.8 sn |
+| TPE #27 | 2 919 434 | %99.08 ± 0.11 | 0.0282 ± 0.0022 | %96.69 ± 0.14 | %99.33 ± 0.18 | 21.7 ± 6.5 | 42.0 ± 10.1 sn |
+| TPE #23 | 1 867 786 | %99.18 ± 0.07 | 0.0249 ± 0.0025 | %96.14 ± 0.26 | %99.53 ± 0.10 | 35.7 ± 11.2 | 50.4 ± 14.2 sn |
+| **4A sonucu** | **269 322** | %98.89 ± 0.16 | 0.0357 ± 0.0047 | %93.93 ± 0.89 | %99.26 ± 0.30 | 24.0 ± 14.1 | 3.6 ± 1.8 sn |
+
+![En iyi ayarlar, yeni seed'lerle](results/arama/dogrulama/egriler.png)
+
+*Early stopping her seed'i farklı epoch'ta durdurduğu için eğitimler farklı uzunlukta; ortalama, o epoch'a ulaşan seed'ler üzerinden. Eğrilerin sonu bu yüzden daha az seed'e dayanıyor.*
+
+- **Aramanın 5 ayarı birbirinden ayırt edilemiyor:** %99.00–99.18.
+- **4A'nın sonucu %98.89; en iyiden 0.29 puan geride.** Eşik 0.3 olduğu için eşiğin içinde, ama tam sınırda.
+- **4A'nın sonucu yavaş başlıyor:** 1. epoch'ta %93.93; aramanın ayarlarında %96.0–96.7. Batch normalization'ı yok ve batch'i büyük: epoch başına 98 güncelleme, batch 64'te 782.
+- **Validation loss'ta fark daha belirgin:** Aramanın ayarlarında en düşük val loss 0.025–0.029, 4A'nın sonucunda 0.036. Eğriler bütün eğitim boyunca ayrı.
+- **4A'nın sonucunun seed'leri daha dağınık** (%98.71–99.01). Seed 1'de eğitim 16. epoch'ta durdu (en iyi epoch 11); val loss'un epoch'tan epoch'a zikzakı, patience 5'i erken durdurmuş olabilir (Bölüm 5.8'in sınırlarından biri).
+- **Maliyet:** Aramanın ayarları 7–11 kat daha fazla parametreye sahip ve ~11–14 kat daha uzun eğitiliyor (~38–50 sn'ye karşı ~3.6 sn).
+
+**Karar:**
+1. **Birincil ölçüt:** En iyi ayar TPE #23 (%99.18). Altı ayarın altısı da en iyiye 0.3 puandan yakın.
+2. **En az parametreli:** 4A'nın sonucu (269 322 parametre).
+3. **Seçilen: 4A'nın sonucu.** 2 gizli katman × 256 nöron, ReLU; momentumlu SGD (momentum 0.9), lr 0.08, batch 512; veri artırma (hafif); en fazla 100 epoch, early stopping (val loss, patience 5). Ayar [`results/arama/secilen_ayar.json`](results/arama/secilen_ayar.json) dosyasına yazıldı; Bölüm 7'deki final model bu dosyayı okuyor.
+   - **Aramanın ayarları seçilmedi:** Doğrulukta eşiğin içindeler, ama 7–11 kat büyükler ve ~11–14 kat daha uzun eğitiliyorlar.
+
+**Sınırda bir karar:**
+- Fark (0.29 puan) eşiğe çok yakın ve ikincil göstergeler aramanın ayarlarından yana: validation loss'ları belirgin şekilde düşük, beşinin beşi de 4A'nın sonucunun üstünde, seed'leri daha kararlı. Bu yüzden ~0.2–0.3 puanlık farkın büyük ihtimalle gerçek olduğunu düşünüyoruz.
+- Yine de kural sonuçlardan önce belirlendi ve sonuçları gördükten sonra değiştirilmedi. 0.3 puan, 10 000 test görüntüsünde ~30 görüntü demek; bunun için 7 kat büyük ve ~14 kat yavaş bir model seçmemek, kuralın amacına uygun.
+- En yüksek doğruluk asıl hedef olsaydı, seçim TPE #23 olurdu (2 × 1024, momentumlu SGD, batch 64, batch normalization + dropout + weight decay + hafif veri artırma); beklenen kazanç ~0.3 puan.
+
+**Ortak arama ne gösterdi?** Ayarların birlikte değiştirildiği çok daha geniş bir uzayda, 4A'nın tek tek bulduğu ayara göre en fazla ~0.3 puanlık bir kazanç bulunabildi. Etkileşimler var (büyük modeller ancak batch normalization ve dropout ile birlikte en üste çıkıyor; Bölüm 6.2), ama bu problemde kazançları küçük. Tek değişkenli yöntemin sınırı burada büyük bir kayba yol açmamış.
+
+**Sınırlar:**
+- 3 seed ile 0.1–0.2 puanlık farklar gürültü düzeyinde.
+- Arama 60 denemeyle sınırlıydı; daha büyük bir bütçe daha iyi ayarlar bulabilirdi.
+- Validation seti Bölüm 5 ve 6'da çok sayıda karar için kullanıldı; validation skorları bu yüzden biraz iyimser. Tarafsız tahmini test seti verecek (Bölüm 7).
 
 ## 7. Final Model ve Test Sonucu
 _(Aşama 5'te doldurulacak)_
