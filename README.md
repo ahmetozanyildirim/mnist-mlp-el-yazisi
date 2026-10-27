@@ -15,12 +15,12 @@ Yapay Sinir Ağları dersi ödevi. MNIST veri seti üzerinde sıfırdan eğitile
 | Test verisi model geliştirmede kullanılmamış | ✅ kodla garanti altında | [Bölüm 3](#3-veri-seti-ve-trainvalidationtest-ayrımı) |
 | Deney 1: train/val loss, train/val accuracy, test accuracy, eğitim süresi | ✅ | [Bölüm 4.4](#44-sonuçlar) |
 | Deney 1: loss ve accuracy grafikleri | ✅ | [Bölüm 4.4](#44-sonuçlar) |
-| Model yapılandırmalarının karşılaştırılması | ⏳ 8 deneyden 5'i tamam (5.1 normalizasyon, 5.2 loss, 5.3 optimizer ve learning rate, 5.4 derinlik ve genişlik, 5.5 aktivasyon) | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
+| Model yapılandırmalarının karşılaştırılması | ⏳ 8 deneyden 6'sı tamam (5.1 normalizasyon, 5.2 loss, 5.3 optimizer ve learning rate, 5.4 derinlik ve genişlik, 5.5 aktivasyon, 5.6 batch boyutu) | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
 | Kullanılan hiperparametreler raporda | ✅ Deney 1 / ⏳ diğer deneyler | [Bölüm 4.2](#42-hiperparametreler), Bölüm 5–7 |
 | El yazısı görüntüleri: gri, 28×28, MNIST renk uyumu, normalizasyon | ⏳ | [Bölüm 8](#8-kendi-el-yazım-ile-değerlendirme) |
 | El yazısıyla öğrenci numarası görselleri repoda | ⏳ | [`el_yazisi/`](el_yazisi/) |
 | Deney sonuçları hakkında genel değerlendirme | ⏳ | [Bölüm 9](#9-genel-değerlendirme) |
-| Kodun çalıştırılabilir olması | ✅ kurulum, veri, Deney 1, Bölüm 5.1–5.5 / ⏳ diğer deneyler | [Bölüm 1](#1-ortam-ve-kurulum) |
+| Kodun çalıştırılabilir olması | ✅ kurulum, veri, Deney 1, Bölüm 5.1–5.6 / ⏳ diğer deneyler | [Bölüm 1](#1-ortam-ve-kurulum) |
 
 ## İçindekiler
 1. [Ortam ve Kurulum](#1-ortam-ve-kurulum)
@@ -74,6 +74,7 @@ Deneyleri çalıştırma (komutlar bu klasörde çalıştırılır; sonuçlar `r
 | `python src/karsilastirma.py 4a3_optimizer_lr` | Optimizer ve learning rate karşılaştırması: 3 optimizer × 4–5 learning rate (Bölüm 5.3) | ~12 dakika |
 | `python src/karsilastirma.py 4a4_derinlik_genislik` | Derinlik ve genişlik: 1–4 gizli katman × 64–1024 nöron (Bölüm 5.4) | ~20 dakika |
 | `python src/karsilastirma.py 4a5_aktivasyon` | Aktivasyon: ReLU / Sigmoid / Tanh, her biri 4–5 learning rate ile (Bölüm 5.5) | ~11 dakika |
+| `python src/karsilastirma.py 4a6_batch` | Batch boyutu: 16–2048, iki learning rate kuralıyla (Bölüm 5.6) | ~15 dakika |
 
 ## 2. Proje Yapısı
 
@@ -244,7 +245,7 @@ Deney 1'deki baseline'ın ayarları **tek tek** değiştirilerek karşılaştır
 | 5.3 | Optimizer ve learning rate | SGD / momentumlu SGD / Adam, her biri 4–5 learning rate ile | **Momentumlu SGD, lr = 0.01** |
 | 5.4 | Derinlik ve genişlik | 1–4 gizli katman × 64–1024 nöron | **2 gizli katman × 256 nöron** |
 | 5.5 | Aktivasyon | ReLU / Sigmoid / Tanh, her biri 4–5 learning rate ile | **ReLU** (ödev şartı), lr = 0.01 |
-| 5.6 | Batch boyutu | 16 … 2048, learning rate sabit ya da batch ile orantılı | ⏳ |
+| 5.6 | Batch boyutu | 16 … 2048, learning rate sabit ya da batch ile orantılı | **Batch 512, lr = 0.08** |
 | 5.7 | Regularization | dropout / weight decay / batch normalization / veri artırma | ⏳ |
 | 5.8 | Epoch sayısı, early stopping ve model seçme ölçütü | | ⏳ |
 
@@ -696,6 +697,100 @@ Her aktivasyonun en iyi learning rate'iyle:
 **Sınırlar:**
 - Ağ sığ (2 katman); Sigmoid'in kaybolan gradyan sorunu derin ağlarda bu deneydekinden çok daha belirgin olur.
 - Tanh sayıca en yüksek sonucu verdi, ama fark eşiğin altında ve ödev şartı nedeniyle Tanh seçilemez.
+
+### 5.6 Batch boyutu
+
+**Soru:** Her ağırlık güncellemesinde kaç görüntüye bakılmalı? (Şu ana kadar 64.)
+
+Batch boyutunun üç etkisi var:
+- **Gürültü:** Küçük batch'in gradyanı, bütün verinin gradyanından daha çok sapar.
+- **Güncelleme sayısı:** Aynı learning rate ile büyük batch, epoch başına çok daha az adım atar. Batch 16'da epoch başına 3 125, batch 2048'de 25 güncelleme var.
+- **Hız:** GPU, batch'teki görüntüleri paralel işler; epoch süresi batch büyüdükçe kısalır.
+
+**Gradyan gürültüsü ölçümü:** Eğitilmemiş 2 × 256 model için 10 000 görüntünün gradyanı "gerçek" gradyan kabul edildi. Her batch boyutunda 20 rastgele batch'in gradyanının bundan göreli farkı ölçüldü:
+
+| Batch | 16 | 32 | 64 | 128 | 256 | 512 | 1024 | 2048 |
+|---|---|---|---|---|---|---|---|---|
+| Epoch başına güncelleme | 3 125 | 1 563 | 782 | 391 | 196 | 98 | 49 | 25 |
+| Gradyan hatası (göreli) | 2.59 | 1.78 | 1.28 | 0.89 | 0.64 | 0.47 | 0.34 | 0.24 |
+
+Batch 4 kat büyüdükçe hata ~2 kat küçülüyor (hata ∝ 1/√batch): ortalama alınan örnek sayısı arttıkça tahminin gürültüsü kareköküyle azalır.
+
+**Tasarım:** Batch boyutu değişince learning rate'in anlamı da değişir. Bu yüzden iki kural denendi:
+
+| Kural | Learning rate | Mantığı |
+|---|---|---|
+| lr sabit | 0.01 | Tek değişken kuralına sadık: yalnızca batch değişir |
+| lr batch ile orantılı | `0.01 × batch / 64` | Doğrusal ölçekleme kuralı (Goyal vd., 2017): batch k kat büyürse adım sayısı k kat azalır; learning rate de k kat büyütülerek epoch başına toplam ilerleme korunur |
+
+- Batch boyutları 16'dan 2048'e kadar, her adımda 2 kat.
+- İlk tasarımda en büyük batch 512'ydi. Ön denemede aşağıdaki kuralın seçtiği ayar aralığın üst kenarında (512) çıktığı için 1024 ve 2048 eklendi.
+- Batch 64'te iki kural aynı ayarı veriyor. Toplam 8 + 7 = 15 ayar × 3 seed = 45 eğitim.
+- Diğer ayarlar Bölüm 5.5 sonundaki gibi: 2 × 256, ReLU, momentumlu SGD, 20 epoch.
+
+**Seçim kuralı (sonuçlardan önce belirlendi):** Birincil ölçüt val accuracy. En iyiye 0.3 puandan yakın ayarlar eşit derecede iyi sayılır. Batch boyutunun asıl pratik etkisi hız olduğu için, bunlardan **en hızlı eğitilen** seçilir. Bu, Bölüm 5.4'teki "eşit derecede iyiyse en ucuzu" kuralının aynısı; orada maliyet parametre sayısıydı, burada eğitim süresi.
+
+**Sonuçlar:**
+
+| Seçenek | Val acc | Val loss (en düşük) | 1. epoch val acc | Train acc | En iyi epoch | Eğitim süresi (20 epoch) |
+|---|---|---|---|---|---|---|
+| Batch 16, lr = 0.01 | %97.70 ± 0.11 | 0.0819 ± 0.0052 | %96.12 ± 0.30 | %99.30 ± 0.13 | 4.7 ± 0.6 | 60.3 ± 0.8 sn |
+| Batch 32, lr = 0.01 | %98.19 ± 0.10 | 0.0742 ± 0.0011 | %95.87 ± 0.81 | %99.88 ± 0.12 | 9.0 ± 2.0 | 36.7 ± 1.1 sn |
+| Batch 64, lr = 0.01 | %97.99 ± 0.11 | 0.0700 ± 0.0016 | %95.21 ± 0.33 | %99.70 ± 0.31 | 7.7 ± 2.5 | 16.1 ± 1.7 sn |
+| Batch 128, lr = 0.01 | %98.00 ± 0.07 | 0.0703 ± 0.0027 | %93.45 ± 0.16 | %99.85 ± 0.15 | 13.0 ± 3.0 | 7.5 ± 0.1 sn |
+| Batch 256, lr = 0.01 | %97.81 ± 0.09 | 0.0712 ± 0.0014 | %91.37 ± 0.24 | %99.80 ± 0.03 | 18.0 ± 1.0 | 3.4 ± 0.0 sn |
+| Batch 512, lr = 0.01 | %97.50 ± 0.05 | 0.0822 ± 0.0026 | %89.23 ± 0.05 | %99.03 ± 0.05 | 20.0 ± 0.0 | 1.9 ± 0.0 sn |
+| Batch 1024, lr = 0.01 | %96.35 ± 0.06 | 0.1187 ± 0.0012 | %83.39 ± 0.38 | %97.46 ± 0.02 | 20.0 ± 0.0 | 1.0 ± 0.1 sn |
+| Batch 2048, lr = 0.01 | %94.62 ± 0.07 | 0.1800 ± 0.0016 | %67.53 ± 2.78 | %95.40 ± 0.01 | 20.0 ± 0.0 | 0.5 ± 0.0 sn |
+| Batch 16, lr = 0.0025 | %98.00 ± 0.05 | 0.0690 ± 0.0014 | %95.09 ± 0.42 | %99.81 ± 0.15 | 8.3 ± 1.5 | 61.5 ± 0.7 sn |
+| Batch 32, lr = 0.005 | %97.98 ± 0.07 | 0.0700 ± 0.0019 | %95.06 ± 0.58 | %99.67 ± 0.27 | 7.3 ± 2.5 | 30.5 ± 0.1 sn |
+| Batch 128, lr = 0.02 | %97.95 ± 0.07 | 0.0704 ± 0.0014 | %95.10 ± 0.25 | %99.74 ± 0.13 | 7.7 ± 1.2 | 7.6 ± 0.0 sn |
+| Batch 256, lr = 0.04 | %98.03 ± 0.06 | 0.0697 ± 0.0012 | %94.77 ± 0.14 | %99.83 ± 0.08 | 8.3 ± 0.6 | 3.4 ± 0.0 sn |
+| **Batch 512, lr = 0.08** | %97.90 ± 0.10 | 0.0728 ± 0.0003 | %94.62 ± 0.09 | %99.73 ± 0.16 | 8.0 ± 2.0 | 1.9 ± 0.0 sn |
+| Batch 1024, lr = 0.16 | %97.87 ± 0.15 | 0.0773 ± 0.0006 | %93.43 ± 0.28 | %99.81 ± 0.11 | 9.3 ± 1.5 | 1.0 ± 0.0 sn |
+| Batch 2048, lr = 0.32 | %96.73 ± 0.25 | 0.1144 ± 0.0091 | %79.02 ± 9.89 | %98.66 ± 0.37 | 10.7 ± 2.1 | 0.5 ± 0.0 sn |
+
+*İlk 8 satır lr sabit (0.01), son 7 satır lr batch ile orantılı.*
+
+![Batch boyutu taraması](results/karsilastirma/4a6_batch/batch_tarama.png)
+
+*Her nokta bir ayarın 3 seed ortalaması (en düşük validation loss'lu epoch'ta), hata çubukları ± standart sapma. Yatay eksen logaritmik; her adım 2 kat. Orantılı lr çizgisinde batch 64 noktası yok; o ayar sabit lr ile aynı.*
+
+Her kuralın en iyisi:
+
+| Seçenek | Val acc | Val loss (en düşük) | 1. epoch val acc | Train acc | En iyi epoch | Eğitim süresi (20 epoch) |
+|---|---|---|---|---|---|---|
+| Batch 32, lr = 0.01 | %98.19 ± 0.10 | 0.0742 ± 0.0011 | %95.87 ± 0.81 | %99.88 ± 0.12 | 9.0 ± 2.0 | 36.7 ± 1.1 sn |
+| Batch 256, lr = 0.04 | %98.03 ± 0.06 | 0.0697 ± 0.0012 | %94.77 ± 0.14 | %99.83 ± 0.08 | 8.3 ± 0.6 | 3.4 ± 0.0 sn |
+
+![Her kuralın en iyisi](results/karsilastirma/4a6_batch/egriler.png)
+
+- **Sabit learning rate'te büyük batch'ler yetişemiyor.**
+  - 32–128 arası ~%98.0–98.2. 256'dan itibaren düşüş başlıyor: 512'de %97.50, 1024'te %96.35, 2048'de %94.62.
+  - En iyi epoch 512 ve üstünde 20; modeller eğitim bittiğinde hâlâ gelişiyordu.
+  - Sebep güncelleme sayısı: 20 epoch'ta batch 2048 yalnızca 500 güncelleme yapıyor, batch 64 ise 15 640.
+- **Sabit learning rate'te çok küçük batch de iyi değil.** Batch 16'da en iyi epoch ~5 ve val loss yüksek (0.082). Her epoch'ta 3 125 güncelleme ve gürültülü gradyanlarla model çok hızlı ilerleyip hızlı overfit ediyor.
+- **Orantılı learning rate'te batch'in etkisi kayboluyor.**
+  - Batch 16'dan 1024'e kadar bütün ayarlar %97.9–98.0. En iyi epoch her batch'te ~8.
+  - Doğrusal ölçekleme kuralı epoch başına ilerlemeyi gerçekten sabit tutuyor.
+  - Batch 2048'de (lr = 0.32) eğitim kararsızlaşıyor: 1. epoch'ta seed'ler arasında ±10 puan fark var, sonuç %96.73. Momentum 0.9 ile etkin adım ~3.2'ye çıkıyor; kuralın bir sınırı var.
+- **Süre, batch her 2 katına çıktığında yaklaşık yarıya iniyor:** batch 16'da ~61 sn, 64'te ~16 sn, 512'de ~1.9 sn, 2048'de ~0.5 sn. Aynı batch boyutunda iki kural aynı sürede bitiyor; süreyi learning rate değil, batch boyutu belirliyor.
+
+**Karar:**
+1. **Birincil ölçüt:** En iyi ayar batch 32, lr = 0.01 (%98.19). 15 ayarın 8'i en iyiye 0.3 puandan yakın.
+2. **Eşit derecede iyi ayarların en hızlısı:** batch 512, lr = 0.08 (%97.90, en iyiden 0.29 puan geride, ~1.9 sn).
+3. **Seçilen: batch 512, lr = 0.08** (learning rate batch ile orantılı).
+   - **Küçük batch'ler seçilmedi:** Doğrulukta ayırt edilemiyorlar, ama 2–30 kat daha yavaşlar.
+   - **Batch 1024 seçilmedi:** %97.87 ile en iyiden 0.32 puan geride, eşiğin hemen dışında. (Ön denemede 0.22 puan gerideydi ve seçilmişti; sınırda bir sonuç.)
+   - **Batch 2048 seçilmedi:** iki kuralda da kararsız ya da yetersiz.
+   - **Sabit learning rate ile büyük batch'ler seçilmedi:** güncelleme sayısı yetmiyor.
+
+**Pratik etkisi:** Bir eğitim ~16 sn yerine ~2 sn sürüyor. Sonraki deneyler ve Bölüm 6'daki ortak arama ~8 kat daha hızlı olacak.
+
+**Sınırlar:**
+- Seçilen ayar eşiğe çok yakın (0.29 puan) ve validation loss'u en iyilerden biraz yüksek (0.073'e karşı ~0.070). Tekrarlanan bir çalıştırmada başka bir batch boyutu seçilebilirdi.
+- Momentum 0.9'da sabit tutuldu. Büyük batch'lerde learning rate ısınması (warm-up; Goyal vd., 2017) kararlılığı artırabilirdi; denenmedi.
+- Küçük batch'in gürültüsünün regularization etkisi (Keskar vd., 2017) bu problemde görülmedi.
 
 ## 6. Ortak Hiperparametre Araması
 _(Aşama 4B–4C'de doldurulacak)_

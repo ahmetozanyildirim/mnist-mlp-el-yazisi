@@ -46,8 +46,8 @@ BASE_4A4 = {**BASE_4A3, "optimizer": "sgd_momentum", "lr": 0.01}
 BASE_4A5 = {**BASE_4A4, "hidden": (256, 256)}
 # Karar 4A-5 (README 5.5): ReLU (ödev şartı). Baseline'daki ayar korundu.
 BASE_4A6 = {**BASE_4A5, "activation": "relu"}
-# Karar 4A-6 (README 5.6): batch 1024, lr = 0.16 (lr batch ile orantılı; baseline: batch 64, lr = 0.01).
-BASE_4A7 = {**BASE_4A6, "batch_size": 1024, "lr": 0.16}
+# Karar 4A-6 (README 5.6): batch 512, lr = 0.08 (lr batch ile orantılı; baseline: batch 64, lr = 0.01).
+BASE_4A7 = {**BASE_4A6, "batch_size": 512, "lr": 0.08}
 # Karar 4A-7 (README 5.7): veri artırma, orta güçte (baseline: regularization yok).
 BASE_4A8 = {**BASE_4A7, "augment": AUGMENT_LEVELS["orta"]}
 # Karar 4A-8 (README 5.8): early stopping (val loss, patience 5, en fazla 100 epoch; baseline: sabit 20 epoch).
