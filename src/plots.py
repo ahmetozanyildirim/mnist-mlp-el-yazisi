@@ -109,6 +109,30 @@ def plot_comparison(results, title=None, metrics=None):
     return fig
 
 
+def plot_generalization_gap(results, title=None):
+    """Her seçenek için epoch başına validation loss − train loss farkı (seed ortalaması).
+
+    Fark büyüdükçe model train setine özgü şeyler öğreniyor (overfitting). Train loss, eval modunda
+    ve veri artırma uygulanmamış train görüntülerinde ölçülür.
+    """
+    fig, ax = plt.subplots(figsize=(10, 3.6))
+    for i, res in enumerate(results):
+        histories = [r["history"] for r in res["runs"] if not r["failed"]]
+        _, val = _stack(histories, "val_loss", 1)
+        _, train = _stack(histories, "train_loss", 1)
+        gap = np.nanmean(val - train, axis=0)
+        ax.plot(np.arange(1, len(gap) + 1), gap, color=plot_style.SERIES[i], marker="o", markersize=3,
+                label=res["label"])
+    ax.set_xlabel("Epoch")
+    ax.set_title("Validation loss − train loss (büyüdükçe overfitting artıyor)", loc="left")
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.legend(loc="upper left")
+    if title:
+        fig.suptitle(title, x=0.01, ha="left", fontsize=12, fontweight="semibold", color=plot_style.INK)
+    fig.tight_layout()
+    return fig
+
+
 def plot_lr_sweep(results, group_key, group_names, title=None):
     """Learning rate taraması: her grup (ör. her optimizer) için learning rate'e göre validation sonuçları."""
     return plot_sweep(results, lambda config: config[group_key], lambda config: config["lr"], group_names,

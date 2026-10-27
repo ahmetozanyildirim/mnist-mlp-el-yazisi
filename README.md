@@ -15,12 +15,12 @@ Yapay Sinir Ağları dersi ödevi. MNIST veri seti üzerinde sıfırdan eğitile
 | Test verisi model geliştirmede kullanılmamış | ✅ kodla garanti altında | [Bölüm 3](#3-veri-seti-ve-trainvalidationtest-ayrımı) |
 | Deney 1: train/val loss, train/val accuracy, test accuracy, eğitim süresi | ✅ | [Bölüm 4.4](#44-sonuçlar) |
 | Deney 1: loss ve accuracy grafikleri | ✅ | [Bölüm 4.4](#44-sonuçlar) |
-| Model yapılandırmalarının karşılaştırılması | ⏳ 8 deneyden 6'sı tamam (5.1 normalizasyon, 5.2 loss, 5.3 optimizer ve learning rate, 5.4 derinlik ve genişlik, 5.5 aktivasyon, 5.6 batch boyutu) | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
+| Model yapılandırmalarının karşılaştırılması | ⏳ 8 deneyden 7'si tamam (5.1 normalizasyon, 5.2 loss, 5.3 optimizer ve learning rate, 5.4 derinlik ve genişlik, 5.5 aktivasyon, 5.6 batch boyutu, 5.7 regularization) | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
 | Kullanılan hiperparametreler raporda | ✅ Deney 1 / ⏳ diğer deneyler | [Bölüm 4.2](#42-hiperparametreler), Bölüm 5–7 |
 | El yazısı görüntüleri: gri, 28×28, MNIST renk uyumu, normalizasyon | ⏳ | [Bölüm 8](#8-kendi-el-yazım-ile-değerlendirme) |
 | El yazısıyla öğrenci numarası görselleri repoda | ⏳ | [`el_yazisi/`](el_yazisi/) |
 | Deney sonuçları hakkında genel değerlendirme | ⏳ | [Bölüm 9](#9-genel-değerlendirme) |
-| Kodun çalıştırılabilir olması | ✅ kurulum, veri, Deney 1, Bölüm 5.1–5.6 / ⏳ diğer deneyler | [Bölüm 1](#1-ortam-ve-kurulum) |
+| Kodun çalıştırılabilir olması | ✅ kurulum, veri, Deney 1, Bölüm 5.1–5.7 / ⏳ diğer deneyler | [Bölüm 1](#1-ortam-ve-kurulum) |
 
 ## İçindekiler
 1. [Ortam ve Kurulum](#1-ortam-ve-kurulum)
@@ -75,6 +75,7 @@ Deneyleri çalıştırma (komutlar bu klasörde çalıştırılır; sonuçlar `r
 | `python src/karsilastirma.py 4a4_derinlik_genislik` | Derinlik ve genişlik: 1–4 gizli katman × 64–1024 nöron (Bölüm 5.4) | ~20 dakika |
 | `python src/karsilastirma.py 4a5_aktivasyon` | Aktivasyon: ReLU / Sigmoid / Tanh, her biri 4–5 learning rate ile (Bölüm 5.5) | ~11 dakika |
 | `python src/karsilastirma.py 4a6_batch` | Batch boyutu: 16–2048, iki learning rate kuralıyla (Bölüm 5.6) | ~15 dakika |
+| `python src/karsilastirma.py 4a7_regularization` | Regularization: dropout / weight decay / batch normalization / veri artırma, farklı güçlerde (Bölüm 5.7) | ~1.5 dakika |
 
 ## 2. Proje Yapısı
 
@@ -246,7 +247,7 @@ Deney 1'deki baseline'ın ayarları **tek tek** değiştirilerek karşılaştır
 | 5.4 | Derinlik ve genişlik | 1–4 gizli katman × 64–1024 nöron | **2 gizli katman × 256 nöron** |
 | 5.5 | Aktivasyon | ReLU / Sigmoid / Tanh, her biri 4–5 learning rate ile | **ReLU** (ödev şartı), lr = 0.01 |
 | 5.6 | Batch boyutu | 16 … 2048, learning rate sabit ya da batch ile orantılı | **Batch 512, lr = 0.08** |
-| 5.7 | Regularization | dropout / weight decay / batch normalization / veri artırma | ⏳ |
+| 5.7 | Regularization | dropout / weight decay / batch normalization / veri artırma, farklı güçlerde | **Veri artırma, hafif güçte** |
 | 5.8 | Epoch sayısı, early stopping ve model seçme ölçütü | | ⏳ |
 
 ### 5.1 Girdi normalizasyonu
@@ -791,6 +792,94 @@ Her kuralın en iyisi:
 - Seçilen ayar eşiğe çok yakın (0.29 puan) ve validation loss'u en iyilerden biraz yüksek (0.073'e karşı ~0.070). Tekrarlanan bir çalıştırmada başka bir batch boyutu seçilebilirdi.
 - Momentum 0.9'da sabit tutuldu. Büyük batch'lerde learning rate ısınması (warm-up; Goyal vd., 2017) kararlılığı artırabilirdi; denenmedi.
 - Küçük batch'in gürültüsünün regularization etkisi (Keskar vd., 2017) bu problemde görülmedi.
+
+### 5.7 Regularization
+
+**Soru:** Overfitting'i azaltan bir yöntem eklenmeli mi? (Şu ana kadar hiçbiri yok.)
+
+Deney 1'den beri bütün eğrilerde aynı tablo var: train accuracy %99.5'in üstüne çıkıyor, validation loss ise ~8–10. epoch'tan sonra yükseliyor. En düşük val loss'lu epoch'u seçmek bunun zararını sınırlıyor (bir tür early stopping), ama overfitting'in kendisini azaltmıyor.
+
+**Denenen yöntemler** (her biri tek başına; tek değişken kuralı):
+
+| Yöntem | Ne yapar | Denenen güçler |
+|---|---|---|
+| Dropout (Srivastava vd., 2014) | Eğitimde her adımda gizli nöronların rastgele bir kısmını (oran p) sıfırlar. Ağ tek tek nöronlara güvenemez, bilgiyi birçok nörona yaymak zorunda kalır. Değerlendirmede kapalı. | p = 0.1 / 0.2 / 0.5 |
+| Weight decay (L2) | Her adımda ağırlıkları sıfıra doğru çeker; loss'a (λ/2)·Σw² eklemekle aynı. Girdideki küçük değişikliklere aşırı tepki veren büyük ağırlıkları cezalandırır. | λ = 0.0001 / 0.0005 / 0.002 |
+| Batch normalization (Ioffe ve Szegedy, 2015) | Her gizli katmanın çıkışını batch'in ortalaması ve standart sapmasıyla standartlaştırır. Asıl amacı optimizasyonu kolaylaştırmak; batch'ten batch'e değişen istatistikler hafif bir regularization etkisi de yaratır. | açık |
+| Veri artırma | Modeli değil veriyi değiştirir: her batch'teki her train görüntüsü rastgele döndürülür, kaydırılır ve ölçeklenir. Model aynı rakamın her epoch biraz farklı bir hâlini görür. Değerlendirmede kapalı. | hafif (±10°, ±2 piksel, ±%10) / orta (±15°, ±3 piksel, ±%15) / güçlü (±20°, ±4 piksel, ±%20) |
+
+- Gizli katmanların sırası: Linear → (batch normalization) → ReLU → (dropout).
+- Veri artırma GPU'da, batch hâlinde yapılıyor ([`src/augment.py`](src/augment.py)). Her görüntü için döndürme açısı, kaydırma ve ölçek, verilen aralıkta düzgün dağılımdan ayrı ayrı seçiliyor. Görüntü tek bir affine dönüşümle yeniden örnekleniyor; dışarıda kalan yerler arka planla dolduruluyor.
+- Veri artırma ilk tasarımda yoktu. El yazısı değerlendirmesinin (Bölüm 8) hazırlığında yapılan bir ön denemede doğruluğu belirgin şekilde artırdığı görülünce, bu deney çalıştırılmadan önce seçeneklere eklendi.
+- Toplam 11 ayar × 3 seed = 33 eğitim. Diğer ayarlar Bölüm 5.6 sonundaki gibi: 2 × 256, ReLU, momentumlu SGD, batch 512, lr = 0.08, 20 epoch.
+
+**Karar kuralı (sonuçlardan önce belirlendi):** Birincil ölçüt val accuracy, eşik 0.3 puan. Fark anlamsızsa ikincil ölçütler: validation loss (regularization'ın asıl hedefi), yakınsama hızı, eğitim süresi. Ayırt edici bir fayda yoksa "yok" (mevcut ayar) korunur.
+
+**Sonuçlar:**
+
+| Seçenek | Val acc | Val loss (en düşük) | 1. epoch val acc | Train acc | En iyi epoch | Eğitim süresi (20 epoch) |
+|---|---|---|---|---|---|---|
+| Yok | %97.97 ± 0.04 | 0.0722 ± 0.0010 | %94.61 ± 0.09 | %99.83 ± 0.05 | 9.0 ± 1.0 | 1.9 ± 0.1 sn |
+| Dropout 0.1 | %98.12 ± 0.02 | 0.0659 ± 0.0008 | %94.70 ± 0.15 | %99.69 ± 0.26 | 9.7 ± 3.5 | 2.0 ± 0.0 sn |
+| Dropout 0.2 | %98.08 ± 0.16 | 0.0659 ± 0.0027 | %94.57 ± 0.10 | %99.60 ± 0.20 | 10.0 ± 2.6 | 2.0 ± 0.0 sn |
+| Dropout 0.5 | %97.93 ± 0.10 | 0.0707 ± 0.0021 | %93.84 ± 0.23 | %99.30 ± 0.01 | 16.3 ± 0.6 | 2.0 ± 0.0 sn |
+| Weight decay 0.0001 | %98.13 ± 0.04 | 0.0694 ± 0.0002 | %94.56 ± 0.13 | %99.95 ± 0.06 | 12.0 ± 1.7 | 1.9 ± 0.0 sn |
+| Weight decay 0.0005 | %98.11 ± 0.01 | 0.0627 ± 0.0005 | %94.56 ± 0.11 | %99.98 ± 0.01 | 17.3 ± 2.1 | 1.9 ± 0.0 sn |
+| Weight decay 0.002 | %97.94 ± 0.09 | 0.0687 ± 0.0012 | %94.53 ± 0.13 | %99.45 ± 0.08 | 17.0 ± 1.0 | 1.9 ± 0.0 sn |
+| Batch normalization | %98.22 ± 0.06 | 0.0635 ± 0.0011 | %96.37 ± 0.11 | %100.00 ± 0.00 | 10.7 ± 1.5 | 2.3 ± 0.0 sn |
+| **Veri artırma (hafif)** | %98.94 ± 0.08 | 0.0364 ± 0.0018 | %94.08 ± 1.13 | %99.17 ± 0.04 | 17.3 ± 1.5 | 2.6 ± 0.0 sn |
+| Veri artırma (orta) | %98.65 ± 0.10 | 0.0446 ± 0.0027 | %93.39 ± 0.88 | %98.79 ± 0.04 | 17.3 ± 1.5 | 2.6 ± 0.0 sn |
+| Veri artırma (güçlü) | %98.23 ± 0.05 | 0.0568 ± 0.0034 | %90.67 ± 2.12 | %98.35 ± 0.08 | 17.3 ± 1.5 | 2.6 ± 0.0 sn |
+
+Her yöntemin en iyisi:
+
+![Her yöntemin en iyisi](results/karsilastirma/4a7_regularization/egriler.png)
+
+![Train–validation loss farkı](results/karsilastirma/4a7_regularization/fark.png)
+
+*Alttaki grafik: her epoch'ta validation loss ile train loss arasındaki fark (3 seed ortalaması). Train loss, eval modunda ve veri artırma uygulanmamış train görüntülerinde ölçülüyor; bu yüzden bütün yöntemler aynı şekilde karşılaştırılabiliyor.*
+
+- **Regularization olmadan overfitting açık.** Train loss 20. epoch'ta ~0.0006'ya iniyor; val loss 9. epoch'tan sonra yükseliyor (en düşük 0.072, 20. epoch'ta 0.082). Train–validation farkı sürekli büyüyor: 5. epoch'ta 0.048, 20. epoch'ta 0.082.
+- **Dropout ve weight decay biraz yardımcı oluyor.**
+  - En iyi güçleri (dropout 0.1, weight decay 0.0001 ve 0.0005) ~%98.1; "yok"tan ~0.15 puan iyi, eşiğin altında.
+  - Train–validation farkını 20. epoch'ta ~0.07'ye indiriyorlar. Weight decay 0.0005 val loss'u en çok düşüren model kısıtlayıcı yöntem (0.063).
+- **Fazlası zarar veriyor.** Dropout 0.5 ve weight decay 0.002 farkı en çok küçültüyor (20. epoch'ta 0.051 ve 0.044). Ama val accuracy "yok"un da altına iniyor (%97.93 ve %97.94), train accuracy de düşüyor (%99.30 ve %99.45). Model artık yeterince öğrenemiyor (underfitting). Regularization'ın gücü, ezberleme ile öğrenememe arasında bir denge.
+- **Batch normalization en hızlı başlayan.**
+  - 1. epoch'ta val acc %96.37 (diğerlerinde ~%94.6), val loss 0.117 (diğerlerinde ~0.17).
+  - Model kısıtlayan yöntemlerin en iyisi (%98.22), ama train–validation farkını pek küçültmüyor (20. epoch'ta 0.068; train accuracy %100).
+  - Faydası overfitting'i önlemekten çok optimizasyonu kolaylaştırmaktan geliyor.
+- **Veri artırma açık ara önde.**
+  - Hafif %98.94 ("yok"tan 0.97 puan iyi), orta %98.65, güçlü %98.23. En düşük val loss neredeyse yarıya iniyor (0.072'den 0.036'ya).
+  - Train–validation farkı bütün eğitim boyunca ~0.01: overfitting fiilen yok. Train accuracy %99.17; model train setini ezberleyemiyor.
+  - İlk epoch'larda biraz geride başlıyor (1. epoch %94.08 ± 1.13; güçlüde %90.67). ~7. epoch'ta öne geçiyor ve farkı açıyor.
+  - Val loss 20. epoch'ta hâlâ iniyor; en iyi epoch ~17. Model 20 epoch'ta henüz bitmemiş olabilir (Bölüm 5.8).
+  - Güç arttıkça sonuç kötüleşiyor. Büyük dönüşümler rakamları MNIST'teki rakamlardan uzaklaştırıyor; model, validation'da hiç görmeyeceği hâlleri öğrenmeye kapasite harcıyor ve daha yavaş öğreniyor.
+- **Süre:** Veri artırma 20 epoch'a ~0.7 sn ekliyor (1.9'dan 2.6 sn'ye), batch normalization ~0.4 sn. Dönüşümler GPU'da batch hâlinde yapıldığı için maliyet küçük.
+
+**Karar:**
+1. **Birincil ölçüt:** En iyi veri artırma (hafif), %98.94.
+   - Veri artırma (orta) 0.29 puan geride: eşiğin hemen içinde, fark anlamlı değil.
+   - Diğer bütün seçenekler anlamlı şekilde kötü: güçlü veri artırma 0.71, batch normalization 0.72, weight decay 0.0001 0.81, dropout 0.1 0.82, "yok" 0.97 puan geride.
+2. **İkincil ölçütler (hafif ile orta arasında):**
+
+   | Ölçüt | Veri artırma (hafif) | Veri artırma (orta) |
+   |---|---|---|
+   | Validation loss (en düşük) | **0.0364 ± 0.0018** | 0.0446 ± 0.0027 |
+   | Yakınsama hızı (1. epoch val acc) | **%94.08 ± 1.13** | %93.39 ± 0.88 |
+   | Eğitim süresi | 2.6 sn | 2.6 sn |
+
+   Validation loss'ta hafif açıkça önde (fark, seed'ler arasındaki standart sapmanın ~3 katı). 1. epoch'ta da biraz önde, ama oradaki fark seed gürültüsünden küçük.
+3. **Seçilen: veri artırma, hafif güçte** (±10° döndürme, ±2 piksel kaydırma, ±%10 ölçekleme).
+   - **Orta seçilmedi:** Doğrulukta eşiğin hemen içinde, ama her ölçütte hafifin gerisinde.
+   - **Güçlü seçilmedi:** Anlamlı şekilde kötü.
+   - **Dropout, weight decay ve batch normalization seçilmedi:** "Yok"tan iyiler, ama veri artırmanın 0.7 puan ve daha fazla gerisindeler.
+
+**Neden bu kadar etkili?** Dropout ve weight decay modeli kısıtlıyor; ezberlemeyi zorlaştırıyorlar ama modele yeni bir şey öğretmiyorlar. Veri artırma ise doğru bir ön bilgi ekliyor: biraz eğik, kaymış ya da büyümüş bir rakam hâlâ aynı rakam. MLP'nin girdisi düz bir 784'lük vektör olduğu için bu bilgi modelin yapısında yok: rakam bir piksel kayınca MLP için bambaşka bir girdi oluşuyor. (CNN'lerde kaymaya karşı duyarsızlık katmanların yapısından gelir; bu ödevde CNN kullanılmıyor.) Veri artırma bu duyarsızlığı modele veri yoluyla öğretiyor. Bu sağlamlık, kendi el yazımla yapılacak değerlendirmede (Bölüm 8) daha da önemli olacak.
+
+**Sınırlar:**
+- Yöntemler tek tek denendi. Birlikte kullanımları (ör. veri artırma ile dropout ya da batch normalization) Bölüm 6'daki ortak aramada denenecek.
+- Veri artırmalı modeller 20. epoch'ta hâlâ gelişiyordu; 20 epoch sınırı onları dezavantajlı bırakıyor. Epoch sayısı Bölüm 5.8'de ele alınıyor.
+- Hafif ile orta arasındaki fark (0.29 puan) eşiğe çok yakın; batch 1024 ile yapılan ilk ön denemede orta biraz öndeydi. Veri artırmanın diğer yöntemlere üstünlüğü ise ön denemelerde de açıktı.
 
 ## 6. Ortak Hiperparametre Araması
 _(Aşama 4B–4C'de doldurulacak)_

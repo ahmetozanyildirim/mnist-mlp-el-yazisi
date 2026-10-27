@@ -22,7 +22,7 @@ from augment import AUGMENT_LEVELS
 from data import load_data
 from device import get_device
 from epoch_secimi import policy_report, save_policy_analysis
-from plots import plot_comparison, plot_sweep
+from plots import plot_comparison, plot_generalization_gap, plot_sweep
 from train import DEFAULT_CONFIG, train
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent / "results" / "karsilastirma"
@@ -48,8 +48,8 @@ BASE_4A5 = {**BASE_4A4, "hidden": (256, 256)}
 BASE_4A6 = {**BASE_4A5, "activation": "relu"}
 # Karar 4A-6 (README 5.6): batch 512, lr = 0.08 (lr batch ile orantılı; baseline: batch 64, lr = 0.01).
 BASE_4A7 = {**BASE_4A6, "batch_size": 512, "lr": 0.08}
-# Karar 4A-7 (README 5.7): veri artırma, orta güçte (baseline: regularization yok).
-BASE_4A8 = {**BASE_4A7, "augment": AUGMENT_LEVELS["orta"]}
+# Karar 4A-7 (README 5.7): veri artırma, hafif güçte (baseline: regularization yok).
+BASE_4A8 = {**BASE_4A7, "augment": AUGMENT_LEVELS["hafif"]}
 # Karar 4A-8 (README 5.8): early stopping (val loss, patience 5, en fazla 100 epoch; baseline: sabit 20 epoch).
 # 4A'nın sonucu: Aşama 4B'deki aramanın başlangıç noktası.
 BASE_4B = {**BASE_4A8, "epochs": 100, "patience": 5, "select_by": "val_loss"}
@@ -232,6 +232,7 @@ EXPERIMENTS = {
         "base": BASE_4A7,
         "variants": REGULARIZATIONS,
         "group": {"of": regularization_type, "names": REGULARIZATION_NAMES, "best_title": "her yöntemin en iyisi"},
+        "save_extra": lambda results, out_dir: save_gap_plot(results, out_dir, regularization_type),
     },
     "4a8_epoch": {
         "title": "Epoch sayısı, early stopping ve model seçme ölçütü",
@@ -457,6 +458,13 @@ def cheapest_report(results, cost, eligible=None, tolerance=TOLERANCE):
                      f"val acc %{mean_val_acc(res) * 100:.2f} | en iyiden fark {(top - mean_val_acc(res)) * 100:.2f} "
                      f"puan | {mean_train_seconds(res):.1f} sn{note}")
     return "\n".join(lines)
+
+
+def save_gap_plot(results, out_dir, group_of):
+    """Her grubun en iyisi için train–validation loss farkı grafiği (fark.png)."""
+    fig = plot_generalization_gap(best_per_group(results, group_of))
+    fig.savefig(Path(out_dir) / "fark.png")
+    plt.close(fig)
 
 
 def save(name, results, out_dir=None):
