@@ -12,15 +12,15 @@ Yapay Sinir Ağları dersi ödevi. MNIST veri seti üzerinde sıfırdan eğitile
 | En az 2 gizli katman, ReLU aktivasyonu | ✅ (Sigmoid ve Tanh ile karşılaştırıldı) | [Bölüm 4.1](#41-model), [Bölüm 5.4](#54-derinlik-ve-genişlik), [Bölüm 5.5](#55-aktivasyon-fonksiyonu) |
 | Uygun sınıflandırma loss'u, SGD veya Adam | ✅ cross-entropy (MSE ve hinge ile karşılaştırıldı) + momentumlu SGD (düz SGD ve Adam ile karşılaştırıldı) | [Bölüm 4.2](#42-hiperparametreler), [Bölüm 5.2](#52-loss-fonksiyonu), [Bölüm 5.3](#53-optimizer-ve-learning-rate) |
 | Train / validation / test ayrımı açıkça gösterilmiş | ✅ | [Bölüm 3](#3-veri-seti-ve-trainvalidationtest-ayrımı) |
-| Test verisi model geliştirmede kullanılmamış | ✅ kodla garanti altında | [Bölüm 3](#3-veri-seti-ve-trainvalidationtest-ayrımı) |
+| Test verisi model geliştirmede kullanılmamış | ✅ kodla garanti altında; final model test setinde yalnızca bir kez değerlendirildi | [Bölüm 3](#3-veri-seti-ve-trainvalidationtest-ayrımı), [Bölüm 7](#7-final-model-ve-test-sonucu) |
 | Deney 1: train/val loss, train/val accuracy, test accuracy, eğitim süresi | ✅ | [Bölüm 4.4](#44-sonuçlar) |
 | Deney 1: loss ve accuracy grafikleri | ✅ | [Bölüm 4.4](#44-sonuçlar) |
 | Model yapılandırmalarının karşılaştırılması | ✅ 8 tek değişkenli deney (5.1 normalizasyon, 5.2 loss, 5.3 optimizer ve learning rate, 5.4 derinlik ve genişlik, 5.5 aktivasyon, 5.6 batch boyutu, 5.7 regularization, 5.8 epoch sayısı ve early stopping) + 60 denemelik ortak arama ve en iyilerin yeni seed'lerle doğrulanması (Bölüm 6) | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
-| Kullanılan hiperparametreler raporda | ✅ Deney 1, Bölüm 5 ve 6 / ⏳ final model | [Bölüm 4.2](#42-hiperparametreler), Bölüm 5–7 |
+| Kullanılan hiperparametreler raporda | ✅ Deney 1, Bölüm 5 ve 6, final model | [Bölüm 4.2](#42-hiperparametreler), Bölüm 5–6, [Bölüm 7.1](#71-final-modelin-hiperparametreleri) |
 | El yazısı görüntüleri: gri, 28×28, MNIST renk uyumu, normalizasyon | ⏳ | [Bölüm 8](#8-kendi-el-yazım-ile-değerlendirme) |
 | El yazısıyla öğrenci numarası görselleri repoda | ⏳ | [`el_yazisi/`](el_yazisi/) |
 | Deney sonuçları hakkında genel değerlendirme | ⏳ | [Bölüm 9](#9-genel-değerlendirme) |
-| Kodun çalıştırılabilir olması | ✅ kurulum, veri, Deney 1, Bölüm 5 ve 6 / ⏳ diğer aşamalar | [Bölüm 1](#1-ortam-ve-kurulum) |
+| Kodun çalıştırılabilir olması | ✅ kurulum, veri, Deney 1, Bölüm 5, 6 ve 7 / ⏳ Bölüm 8 | [Bölüm 1](#1-ortam-ve-kurulum) |
 
 ## İçindekiler
 1. [Ortam ve Kurulum](#1-ortam-ve-kurulum)
@@ -79,6 +79,8 @@ Deneyleri çalıştırma (komutlar bu klasörde çalıştırılır; sonuçlar `r
 | `python src/karsilastirma.py 4a8_epoch` | Epoch sayısı, early stopping ve seçim ölçütü: 100 epoch × 3 seed, 10 kural (Bölüm 5.8) | ~1 dakika |
 | `python src/arama.py ara` | Ortak arama: rastgele arama ve TPE, 30'ar deneme (Bölüm 6.2) | ~22 dakika |
 | `python src/arama.py dogrula` | En iyi 5 ayar + 4A'nın sonucu, 3 yeni seed'le; final ayarı seçer (Bölüm 6.3) | ~13 dakika |
+| `python src/final.py` | Final model: seçilen ayar 3 seed ile eğitilir, test setinde bir kez değerlendirilir, model kaydedilir (Bölüm 7) | ~30 saniye |
+| `python src/sure_olcumu.py --device cpu --hidden 256 256 --batch-size 512` | Bir epoch'luk eğitim süresi (CPU ya da GPU); Bölüm 7.5'teki ölçüm | birkaç saniye |
 
 ## 2. Proje Yapısı
 
@@ -1186,7 +1188,108 @@ Sayılar, 50 farklı denemenin (ortak ilk 10 bir kez sayıldı) başarılı 49'u
 - Validation seti Bölüm 5 ve 6'da çok sayıda karar için kullanıldı; validation skorları bu yüzden biraz iyimser. Tarafsız tahmini test seti verecek (Bölüm 7).
 
 ## 7. Final Model ve Test Sonucu
-_(Aşama 5'te doldurulacak)_
+
+Kod: [`src/final.py`](src/final.py) · Çalıştırma: `python src/final.py` · Sonuçlar: [`results/final/`](results/final/)
+
+Bölüm 5 ve 6'daki bütün kararlar validation setine bakılarak verildi. Bu bölümde seçilen ayar 3 seed ile eğitildi ve **test setinde bir kez** değerlendirildi.
+
+**Test seti kuralı:** Test seti yalnızca eğitim bittikten sonra, tek bir adımda yüklenip kullanıldı. Test sonucuna bakarak hiçbir ayar değiştirilmedi; değerlendirme tekrarlanmadı.
+
+### 7.1 Final modelin hiperparametreleri
+
+| Hiperparametre | Değer | Nereden? |
+|---|---|---|
+| Mimari | 784 → 256 → 256 → 10 (2 gizli katman), 269 322 parametre | Bölüm 5.4 |
+| Aktivasyon | ReLU | Bölüm 5.5 (ödev şartı) |
+| Girdi normalizasyonu | Standardizasyon (train setinin ortalaması ve standart sapmasıyla) | Bölüm 5.1 |
+| Loss | Cross-entropy | Bölüm 5.2 |
+| Optimizer | Momentumlu SGD, momentum 0.9 | Bölüm 5.3 |
+| Learning rate | 0.08 | Bölüm 5.3 ve 5.6 (0.01 × batch / 64) |
+| Batch boyutu | 512 | Bölüm 5.6 |
+| Regularization | Veri artırma, hafif: ±10° döndürme, ±2 piksel kaydırma, ±%10 ölçekleme. Dropout, weight decay ve batch normalization yok | Bölüm 5.7 |
+| Epoch sayısı | En fazla 100; early stopping (val loss 5 epoch iyileşmezse durur) | Bölüm 5.8 |
+| Model seçimi | En düşük validation loss'lu epoch'un ağırlıkları | Bölüm 4.3, 5.8 |
+| Tekrar | 3 seed (0, 1, 2) | |
+
+Bu ayar Bölüm 5'in tek tek kararlarından oluşuyor. Bölüm 6'daki ortak arama ondan anlamlı şekilde iyi bir ayar bulamadı; eşit derecede iyiler arasından en az parametreli olduğu için seçildi (Bölüm 6.3).
+
+### 7.2 Eğitim
+
+![Final modelin eğitim eğrileri](results/final/egriler.png)
+
+*Kesikli dikey çizgiler seed'lerin en düşük validation loss'lu epoch'ları.*
+
+- **Early stopping her seed'i farklı yerde durdurdu:** en iyi epoch'lar 19, 17 ve 22; eğitim 5 epoch sonra durdu (24, 22, 27).
+- **Overfitting yok denecek kadar az:** Train ve validation eğrileri birbirine yakın (train accuracy %99.2, validation %98.9). Deney 1'de train accuracy %99.5'in üstüne çıkıp validation loss 5. epoch'tan sonra yükseliyordu; burada validation loss eğitimin sonuna kadar iniyor. Bu, veri artırmanın etkisi (Bölüm 5.7).
+- **Eğitim süresi:** seed başına ~3.5 sn (Deney 1'de ~16.5 sn).
+
+### 7.3 Test sonucu
+
+| Seed | En iyi epoch | Train loss | Val loss | Train acc | Val acc | Test loss | Test acc | Eğitim süresi |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 19 | 0.0229 | 0.0348 | %99.26 | %98.91 | 0.0333 | %98.82 | 3.5 sn |
+| 1 | 17 | 0.0268 | 0.0374 | %99.14 | %98.82 | 0.0383 | %98.72 | 3.1 sn |
+| 2 | 22 | 0.0247 | 0.0350 | %99.22 | %98.92 | 0.0372 | %98.68 | 3.8 sn |
+| **Ortalama ± std** | 19.3 ± 2.5 | 0.0248 ± 0.0020 | 0.0357 ± 0.0015 | %99.21 ± 0.06 | %98.88 ± 0.06 | 0.0362 ± 0.0026 | **%98.74 ± 0.07** | 3.5 ± 0.4 sn |
+
+*Tablo Deney 1'deki (Bölüm 4.4) ile aynı biçimde; her seed'in değerleri en düşük validation loss'lu epoch'tan.*
+
+**Deney 1 ile karşılaştırma** (aynı test seti):
+
+| | Deney 1 (baseline) | Final model | Fark |
+|---|---|---|---|
+| Validation accuracy | %97.83 ± 0.21 | %98.88 ± 0.06 | +1.05 puan |
+| **Test accuracy** | %97.83 ± 0.08 | **%98.74 ± 0.07** | **+0.91 puan** |
+| Test loss | 0.0797 | 0.0362 | −%55 |
+| Test setindeki hata sayısı (10 000 görüntüde) | ~217 | ~126 | −%42 |
+| Eğitim süresi | ~16.5 sn | ~3.5 sn | ~4.7 kat hızlı |
+
+- **Test, validation'dan 0.14 puan düşük.** Beklenen bu: Bölüm 5 ve 6'daki bütün kararlar validation setine bakılarak verildi, bu yüzden validation sonucu biraz iyimser. Farkın küçük olması, kararların validation setine aşırı uymadığını gösteriyor. (Deney 1'de hiçbir karar verilmemişti; orada iki sonuç aynıydı.)
+- **Hataların ~%42'si ortadan kalktı:** Deney 1 test setinde ~217 görüntüyü yanlış sınıflıyordu, final model ~126.
+- **Seed'ler arası fark küçük** (±0.07 puan); sonuç tek bir şanslı eğitime dayanmıyor.
+
+### 7.4 Hata analizi
+
+Bu bölüm bir karar için değil, modeli anlamak için. Analiz, validation accuracy'si en yüksek seed'in (seed 2) modeliyle yapıldı; bu model Bölüm 8'de kendi el yazımı tanımak için de kullanılıyor ([`results/final/model.pt`](results/final/model.pt)).
+
+![Karışıklık matrisi](results/final/karisiklik_matrisi.png)
+
+*Satır gerçek rakam, sütun tahmin. Köşegen doğru tahminler; köşegen dışındaki her hücre bir hata türü.*
+
+| Rakam | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Test accuracy | %99.3 | %99.6 | %99.3 | %99.4 | %98.5 | %98.5 | %98.5 | %98.4 | %97.5 | %97.4 |
+
+- **En zor rakamlar 8 ve 9** (%97.5 ve %97.4); en kolayları 1, 3, 0 ve 2.
+- **En sık hatalar:** 8 → 3 (13 kez), 4 → 9 (9), 5 → 3 (8), 9 → 7 (7), 9 → 3 (6). Hepsi şekil olarak benzeyen çiftler: 8'in sol yarısı açılınca 3, üstü kapalı bir 4 de 9 oluyor.
+- **Model "3" demeye eğilimli:** 132 hatanın 35'i (%27) "3" tahmini. 3 ise kendisi en az karıştırılan rakamlardan (%99.4).
+- Bu seed'in test accuracy'si %98.68; üç seed'in en düşüğü. Model seçimi validation'a göre yapıldığı için bu beklenebilir bir durum: seed'ler arasındaki fark (0.14 puan) gürültü düzeyinde ve test sonucuna bakarak model değiştirmiyoruz.
+
+![Modelin en emin olduğu yanlışlar](results/final/hatalar.png)
+
+*Modelin yanlış sınıfa en yüksek olasılığı verdiği 24 test görüntüsü; başlıkta gerçek etiket, tahmin ve modelin güveni.*
+
+- **Bir kısmını bir insan da zor okur:** "l" gibi yazılmış bir 6, çok soluk bir 9, 7'ye benzeyen 2'ler. Bazılarının etiketi bile tartışmalı.
+- **Bir kısmı ise açık hatalar:** düzgün bir 8'i %91 güvenle 3, kalın ve net bir 5'i %90 güvenle 3 sanıyor. MLP görüntüyü 784 ayrı piksel olarak görüyor; çizgilerin nasıl birleştiğini, yani şeklin yapısını kendiliğinden bilmiyor. Bu, MLP'nin bilinen bir sınırı. (CNN'ler bu yapıyı mimarilerinde taşır; ödev gereği CNN kullanılmadı.)
+- **Model yanlışken de çok emin olabiliyor** (%90–100). Yüksek güven, doğru olmanın garantisi değil; bu Bölüm 8'de kendi el yazımda da önemli olacak.
+
+### 7.5 Eğitim süresi: CPU ve GPU
+
+Bütün eğitimler GPU'da (AMD Radeon RX 9070 XT, ROCm) yapıldı. Aynı eğitimin CPU'da ne kadar süreceği de ölçüldü ([`src/sure_olcumu.py`](src/sure_olcumu.py)):
+- Final modelin mimarisi ve batch boyutuyla, aynı boyutta rastgele veri üzerinde (50 000 görüntü) bir epoch'luk eğitim. Isınmadan sonra 2 epoch ölçüldü, kısa olanı alındı.
+- Projede kullanılan ROCm'lu PyTorch, CPU'da matris çarpımı için OpenBLAS kullanıyor. Standart CPU PyTorch'u ise Intel MKL kullanıyor. CPU'ya haksızlık olmasın diye ikisi de ölçüldü; MKL ölçümü ayrı bir Python ortamında yapıldı.
+
+| Ortam | PyTorch | MKL | PyTorch iş parçacığı | Epoch süresi | Hız (en yavaşa göre) |
+|---|---|---|---|---|---|
+| GPU (ROCm) | 2.14.0+rocm10.1.0 | yok | 8 | 0.09 sn | 31.0× |
+| CPU, OpenBLAS (ROCm PyTorch) | 2.14.0+rocm10.1.0 | yok | 8 | 2.80 sn | 1.0× |
+| CPU, MKL (standart CPU PyTorch) | 2.11.0+cpu | var | 8 | 0.16 sn | 17.4× |
+
+*İşlemci: AMD64 Family 26 Model 68 (AMD).*
+
+- **GPU, MKL'li CPU'dan yalnızca ~1.8 kat hızlı.** Model küçük (269 bin parametre): her adımda GPU'ya küçük işler gidiyor ve her işin başlatılmasının sabit bir maliyeti var. GPU'nun binlerce çekirdeği büyük matrislerde fark yaratır; bu boyutta zamanın önemli bir kısmı bu sabit maliyetlere gidiyor.
+- **Aynı işlemcide OpenBLAS, MKL'den ~17 kat yavaş.** Bir donanım karşılaştırmasında yazılım tarafı da en az donanım kadar önemli.
+- **Pratik sonuç:** Final model GPU'suz bir bilgisayarda da (standart PyTorch kurulumuyla) makul sürede eğitilebilir; bir epoch ~0.16 sn. GPU'nun asıl faydası Bölüm 5 ve 6'daki yüzlerce eğitimde ve büyük modellerde (ör. Bölüm 6'nın 2 × 1024'lük ayarlarında) ortaya çıktı.
 
 ## 8. Kendi El Yazım ile Değerlendirme
 _(Aşama 6'da doldurulacak)_
