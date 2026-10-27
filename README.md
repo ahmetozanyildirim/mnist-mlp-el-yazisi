@@ -9,18 +9,18 @@ Yapay Sinir Ağları dersi ödevi. MNIST veri seti üzerinde sıfırdan eğitile
 | Gereksinim | Durum | Nerede |
 |---|---|---|
 | Model MLP (CNN yok), hazır model yok, sıfırdan eğitim | ✅ | [Bölüm 4.1](#41-model) |
-| En az 2 gizli katman, ReLU aktivasyonu | ✅ | [Bölüm 4.1](#41-model), [Bölüm 5.4](#54-derinlik-ve-genişlik) |
+| En az 2 gizli katman, ReLU aktivasyonu | ✅ (Sigmoid ve Tanh ile karşılaştırıldı) | [Bölüm 4.1](#41-model), [Bölüm 5.4](#54-derinlik-ve-genişlik), [Bölüm 5.5](#55-aktivasyon-fonksiyonu) |
 | Uygun sınıflandırma loss'u, SGD veya Adam | ✅ cross-entropy (MSE ve hinge ile karşılaştırıldı) + momentumlu SGD (düz SGD ve Adam ile karşılaştırıldı) | [Bölüm 4.2](#42-hiperparametreler), [Bölüm 5.2](#52-loss-fonksiyonu), [Bölüm 5.3](#53-optimizer-ve-learning-rate) |
 | Train / validation / test ayrımı açıkça gösterilmiş | ✅ | [Bölüm 3](#3-veri-seti-ve-trainvalidationtest-ayrımı) |
 | Test verisi model geliştirmede kullanılmamış | ✅ kodla garanti altında | [Bölüm 3](#3-veri-seti-ve-trainvalidationtest-ayrımı) |
 | Deney 1: train/val loss, train/val accuracy, test accuracy, eğitim süresi | ✅ | [Bölüm 4.4](#44-sonuçlar) |
 | Deney 1: loss ve accuracy grafikleri | ✅ | [Bölüm 4.4](#44-sonuçlar) |
-| Model yapılandırmalarının karşılaştırılması | ⏳ 8 deneyden 4'ü tamam (5.1 normalizasyon, 5.2 loss, 5.3 optimizer ve learning rate, 5.4 derinlik ve genişlik) | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
+| Model yapılandırmalarının karşılaştırılması | ⏳ 8 deneyden 5'i tamam (5.1 normalizasyon, 5.2 loss, 5.3 optimizer ve learning rate, 5.4 derinlik ve genişlik, 5.5 aktivasyon) | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
 | Kullanılan hiperparametreler raporda | ✅ Deney 1 / ⏳ diğer deneyler | [Bölüm 4.2](#42-hiperparametreler), Bölüm 5–7 |
 | El yazısı görüntüleri: gri, 28×28, MNIST renk uyumu, normalizasyon | ⏳ | [Bölüm 8](#8-kendi-el-yazım-ile-değerlendirme) |
 | El yazısıyla öğrenci numarası görselleri repoda | ⏳ | [`el_yazisi/`](el_yazisi/) |
 | Deney sonuçları hakkında genel değerlendirme | ⏳ | [Bölüm 9](#9-genel-değerlendirme) |
-| Kodun çalıştırılabilir olması | ✅ kurulum, veri, Deney 1, Bölüm 5.1–5.4 / ⏳ diğer deneyler | [Bölüm 1](#1-ortam-ve-kurulum) |
+| Kodun çalıştırılabilir olması | ✅ kurulum, veri, Deney 1, Bölüm 5.1–5.5 / ⏳ diğer deneyler | [Bölüm 1](#1-ortam-ve-kurulum) |
 
 ## İçindekiler
 1. [Ortam ve Kurulum](#1-ortam-ve-kurulum)
@@ -73,6 +73,7 @@ Deneyleri çalıştırma (komutlar bu klasörde çalıştırılır; sonuçlar `r
 | `python src/karsilastirma.py 4a2b_loss_sgd` | Loss fonksiyonu karşılaştırması, ek analiz: SGD (Bölüm 5.2) | ~2.5 dakika |
 | `python src/karsilastirma.py 4a3_optimizer_lr` | Optimizer ve learning rate karşılaştırması: 3 optimizer × 4–5 learning rate (Bölüm 5.3) | ~12 dakika |
 | `python src/karsilastirma.py 4a4_derinlik_genislik` | Derinlik ve genişlik: 1–4 gizli katman × 64–1024 nöron (Bölüm 5.4) | ~20 dakika |
+| `python src/karsilastirma.py 4a5_aktivasyon` | Aktivasyon: ReLU / Sigmoid / Tanh, her biri 4–5 learning rate ile (Bölüm 5.5) | ~11 dakika |
 
 ## 2. Proje Yapısı
 
@@ -242,7 +243,7 @@ Deney 1'deki baseline'ın ayarları **tek tek** değiştirilerek karşılaştır
 | 5.2 | Loss fonksiyonu | cross-entropy / MSE / hinge | **Cross-entropy** |
 | 5.3 | Optimizer ve learning rate | SGD / momentumlu SGD / Adam, her biri 4–5 learning rate ile | **Momentumlu SGD, lr = 0.01** |
 | 5.4 | Derinlik ve genişlik | 1–4 gizli katman × 64–1024 nöron | **2 gizli katman × 256 nöron** |
-| 5.5 | Aktivasyon | ReLU / Sigmoid / Tanh | ⏳ |
+| 5.5 | Aktivasyon | ReLU / Sigmoid / Tanh, her biri 4–5 learning rate ile | **ReLU** (ödev şartı), lr = 0.01 |
 | 5.6 | Batch boyutu | 16 … 2048, learning rate sabit ya da batch ile orantılı | ⏳ |
 | 5.7 | Regularization | dropout / weight decay / batch normalization / veri artırma | ⏳ |
 | 5.8 | Epoch sayısı, early stopping ve model seçme ölçütü | | ⏳ |
@@ -605,6 +606,96 @@ Her derinliğin en iyi modeli:
 - Bütün modeller 256 → 128 modelinde seçilen learning rate (0.01) ile eğitildi. Çok farklı boyuttaki modellerin en iyi learning rate'i farklı olabilir.
 - Başlangıç ağırlıkları PyTorch'un varsayılanı; He başlangıcı derin modellere yardım edebilirdi.
 - Regularization yok. Büyük modeller regularization ile (Bölüm 5.7) daha iyi sonuç verebilir. Mimari, Bölüm 6'da diğer ayarlarla birlikte yeniden aranacak.
+
+### 5.5 Aktivasyon fonksiyonu
+
+**Soru:** Gizli katmanlarda hangi aktivasyon fonksiyonu kullanılmalı?
+
+**Bu deney karar için değil, anlamak için yapıldı.** Ödev ReLU kullanılmasını şart koşuyor. Sigmoid ve Tanh, ReLU'nun neden tercih edildiğini görmek için denendi.
+
+| Aktivasyon | Formül | Çıkış aralığı | Türevin en büyük değeri |
+|---|---|---|---|
+| Sigmoid | `1 / (1 + e^(−z))` | (0, 1) | 0.25 |
+| Tanh | `(e^z − e^(−z)) / (e^z + e^(−z))` | (−1, 1) | 1 |
+| ReLU | `max(0, z)` | [0, ∞) | 1 (z > 0 olan her yerde) |
+
+Backpropagation'da gradyan her katmanda aktivasyonun türeviyle çarpılarak geriye taşınır.
+- **Sigmoid:** Türev en fazla 0.25 olduğu için gradyan her katmanda en az 4 kat küçülür. Büyük `|z|` değerlerinde fonksiyon düzleşir (doygunluk) ve türev sıfıra yaklaşır. Çıkışları da hep pozitiftir.
+- **Tanh:** Sıfır merkezli, ama o da doyar.
+- **ReLU:** Pozitif tarafta doygunluk yok ve hesaplaması en ucuzu. Dezavantajı, negatif tarafta türevin 0 olması ("ölü ReLU", Bölüm 5.1).
+
+**Gradyan ölçümü:** Eğitilmemiş, aynı başlangıç ağırlıklarına sahip 2 × 256 model üç aktivasyonla kuruldu. 1 000 validation görüntüsüyle bir kez backpropagation yapıldı ve her katmanın ağırlıklarına gelen gradyanın normu ölçüldü:
+
+| | 1. katman | 2. katman | Çıkış katmanı |
+|---|---|---|---|
+| Sigmoid | **0.070** | 0.082 | 0.485 |
+| Tanh | 0.879 | 0.505 | 0.500 |
+| ReLU | 0.447 | 0.258 | 0.232 |
+
+Sigmoid'de ilk katmana ulaşan gradyan, ReLU'dakinin ~1/6'sı. Gradyan çıkış katmanında büyük, ama geriye doğru giderken türevin çarpanıyla eriyor. Bu yüzden Sigmoid'in daha büyük bir learning rate'e ihtiyaç duyacağı beklendi.
+
+**Tasarım:** Optimizer deneyindeki (5.3) gibi, her aktivasyon kendi learning rate aralığında denendi ve **kendi en iyi learning rate'iyle** karşılaştırıldı.
+- Denenen learning rate'ler (momentumlu SGD): 0.003 / 0.01 / 0.03 / 0.1.
+- Ön denemede Sigmoid'in en iyi değeri aralığın üst kenarında (0.1) çıktı. Bu yüzden Sigmoid için 0.3 de eklendi.
+- Toplam 13 ayar × 3 seed = 39 eğitim.
+- Diğer ayarlar Bölüm 5.4 sonundaki gibi: 2 × 256, batch 64, 20 epoch.
+
+**Sonuçlar:**
+
+| Seçenek | Val acc | Val loss (en düşük) | 1. epoch val acc | Train acc | En iyi epoch | Eğitim süresi (20 epoch) |
+|---|---|---|---|---|---|---|
+| ReLU, lr = 0.003 | %97.89 ± 0.07 | 0.0710 ± 0.0007 | %92.19 ± 0.32 | %99.81 ± 0.08 | 16.0 ± 1.7 | 15.0 ± 0.2 sn |
+| ReLU, lr = 0.01 | %98.03 ± 0.11 | 0.0693 ± 0.0025 | %95.22 ± 0.32 | %99.71 ± 0.33 | 7.7 ± 2.5 | 14.8 ± 0.0 sn |
+| ReLU, lr = 0.03 | %97.91 ± 0.07 | 0.0770 ± 0.0011 | %96.18 ± 0.34 | %99.51 ± 0.13 | 6.3 ± 0.6 | 14.8 ± 0.0 sn |
+| ReLU, lr = 0.1 | %95.66 ± 0.45 | 0.1887 ± 0.0155 | %93.94 ± 0.73 | %96.67 ± 0.44 | 4.0 ± 1.7 | 14.9 ± 0.1 sn |
+| Sigmoid, lr = 0.003 | %94.95 ± 0.05 | 0.1726 ± 0.0004 | %58.45 ± 3.63 | %95.72 ± 0.02 | 20.0 ± 0.0 | 14.7 ± 0.1 sn |
+| Sigmoid, lr = 0.01 | %97.54 ± 0.09 | 0.0813 ± 0.0016 | %87.64 ± 0.39 | %99.18 ± 0.07 | 19.7 ± 0.6 | 14.7 ± 0.1 sn |
+| Sigmoid, lr = 0.03 | %97.91 ± 0.08 | 0.0715 ± 0.0007 | %91.59 ± 0.20 | %99.91 ± 0.06 | 14.7 ± 2.1 | 14.7 ± 0.0 sn |
+| Sigmoid, lr = 0.1 | %98.11 ± 0.09 | 0.0761 ± 0.0019 | %94.12 ± 1.38 | %99.99 ± 0.01 | 11.0 ± 1.0 | 14.7 ± 0.1 sn |
+| Sigmoid, lr = 0.3 | %97.31 ± 0.27 | 0.1004 ± 0.0060 | %90.10 ± 4.12 | %99.27 ± 0.35 | 16.3 ± 3.2 | 14.8 ± 0.1 sn |
+| Tanh, lr = 0.003 | %97.90 ± 0.06 | 0.0705 ± 0.0004 | %91.53 ± 0.08 | %99.90 ± 0.02 | 19.0 ± 1.0 | 14.8 ± 0.1 sn |
+| Tanh, lr = 0.01 | %98.09 ± 0.09 | 0.0689 ± 0.0020 | %94.40 ± 0.13 | %99.93 ± 0.09 | 9.7 ± 1.5 | 14.8 ± 0.0 sn |
+| Tanh, lr = 0.03 | %98.20 ± 0.06 | 0.0737 ± 0.0034 | %95.61 ± 0.48 | %100.00 ± 0.00 | 10.7 ± 0.6 | 14.7 ± 0.1 sn |
+| Tanh, lr = 0.1 | %95.79 ± 0.41 | 0.1610 ± 0.0070 | %93.32 ± 0.87 | %96.79 ± 0.46 | 5.0 ± 2.6 | 14.8 ± 0.1 sn |
+
+![Aktivasyon ve learning rate taraması](results/karsilastirma/4a5_aktivasyon/lr_tarama.png)
+
+*Her nokta bir ayarın 3 seed ortalaması (en düşük validation loss'lu epoch'ta), hata çubukları ± standart sapma. Yatay eksen logaritmik.*
+
+Her aktivasyonun en iyi learning rate'iyle:
+
+| Seçenek | Val acc | Val loss (en düşük) | 1. epoch val acc | Train acc | En iyi epoch | Eğitim süresi (20 epoch) |
+|---|---|---|---|---|---|---|
+| ReLU, lr = 0.01 | %98.03 ± 0.11 | 0.0693 ± 0.0025 | %95.22 ± 0.32 | %99.71 ± 0.33 | 7.7 ± 2.5 | 14.8 ± 0.0 sn |
+| Sigmoid, lr = 0.1 | %98.11 ± 0.09 | 0.0761 ± 0.0019 | %94.12 ± 1.38 | %99.99 ± 0.01 | 11.0 ± 1.0 | 14.7 ± 0.1 sn |
+| Tanh, lr = 0.03 | %98.20 ± 0.06 | 0.0737 ± 0.0034 | %95.61 ± 0.48 | %100.00 ± 0.00 | 10.7 ± 0.6 | 14.7 ± 0.1 sn |
+
+![Aktivasyon karşılaştırması (en iyi learning rate'leriyle)](results/karsilastirma/4a5_aktivasyon/egriler.png)
+
+- **Aynı learning rate'te Sigmoid geride, kendi learning rate'inde değil.**
+  - lr = 0.01'de Sigmoid %97.54; ReLU %98.03. 1. epoch'ta fark çok daha büyük: %87.64'e karşı %95.22.
+  - lr = 0.003'te Sigmoid neredeyse öğrenemiyor: 1. epoch'ta %58, 20 epoch sonunda %94.95.
+  - Sigmoid'in en iyi değeri lr = 0.1 (%98.11). Bu, ReLU'nun en iyi değerinin 10 katı ve gradyan ölçümüyle uyumlu.
+  - Tek bir learning rate'te karşılaştırsaydık "Sigmoid kötü" derdik. Bu farkın büyük bölümü learning rate seçiminden kaynaklanıyor.
+- **Tanh, ReLU kadar iyi:** En iyi değeri lr = 0.03'te %98.20.
+- **Learning rate'e duyarlılık farklı:**
+  - ReLU ve Tanh 0.003–0.03 aralığının tamamında %97.9–98.2 veriyor.
+  - Sigmoid yalnızca 0.03–0.1 aralığında iyi.
+  - lr = 0.1'de ReLU ve Tanh bozuluyor (%95.7–95.8); momentum 0.9 ile etkin adım ~1.0 oluyor.
+- **Eğriler:** Sigmoid, en iyi learning rate'iyle bile 1. epoch'ta geride (%94.1'e karşı %95.2–95.6) ve seed'ler arası farkı büyük. ~10. epoch'tan sonra üç eğri birleşiyor.
+- Bu deneyde üç aktivasyonun eğitim süresi aynı (~14.8 sn). Ön denemede Tanh ve Sigmoid ~%10 daha yavaştı. Bu, bu boyuttaki bir modelde süreyi aktivasyonun hesabından çok diğer işlemlerin belirlediğini gösteriyor.
+
+**Karar:**
+1. **Birincil ölçüt üç aktivasyonu ayırt etmiyor:** En iyi learning rate'leriyle Tanh %98.20, Sigmoid %98.11, ReLU %98.03. ReLU en iyiden 0.17 puan geride; fark eşiğin altında.
+2. **Seçilen: ReLU, lr = 0.01** (ödev şartı; baseline'daki ayar korundu). ReLU için denenen learning rate'lerin en iyisi zaten 0.01.
+3. **Ödev şartı olmasaydı da ReLU'yu seçmek için sebep var:**
+   - **Learning rate'e duyarlılık:** ReLU geniş bir aralıkta iyi sonuç veriyor; Sigmoid dar bir aralıkta.
+   - **Yakınsama hızı:** Aynı learning rate'te ReLU 1. epoch'ta ~7.6 puan önde. Sigmoid'in ilk katmanına ulaşan gradyan ~6 kat küçük.
+   - **Derinlik:** Bu ağ yalnızca 2 katmanlı. Sigmoid'in gradyanı her katmanda en az 4 kat küçüldüğü için derin ağlarda fark büyür (kaybolan gradyan sorunu).
+
+**Sınırlar:**
+- Ağ sığ (2 katman); Sigmoid'in kaybolan gradyan sorunu derin ağlarda bu deneydekinden çok daha belirgin olur.
+- Tanh sayıca en yüksek sonucu verdi, ama fark eşiğin altında ve ödev şartı nedeniyle Tanh seçilemez.
 
 ## 6. Ortak Hiperparametre Araması
 _(Aşama 4B–4C'de doldurulacak)_
