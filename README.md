@@ -9,18 +9,18 @@ Yapay Sinir Ağları dersi ödevi. MNIST veri seti üzerinde sıfırdan eğitile
 | Gereksinim | Durum | Nerede |
 |---|---|---|
 | Model MLP (CNN yok), hazır model yok, sıfırdan eğitim | ✅ | [Bölüm 4.1](#41-model) |
-| En az 2 gizli katman, ReLU aktivasyonu | ✅ | [Bölüm 4.1](#41-model) |
+| En az 2 gizli katman, ReLU aktivasyonu | ✅ | [Bölüm 4.1](#41-model), [Bölüm 5.4](#54-derinlik-ve-genişlik) |
 | Uygun sınıflandırma loss'u, SGD veya Adam | ✅ cross-entropy (MSE ve hinge ile karşılaştırıldı) + momentumlu SGD (düz SGD ve Adam ile karşılaştırıldı) | [Bölüm 4.2](#42-hiperparametreler), [Bölüm 5.2](#52-loss-fonksiyonu), [Bölüm 5.3](#53-optimizer-ve-learning-rate) |
 | Train / validation / test ayrımı açıkça gösterilmiş | ✅ | [Bölüm 3](#3-veri-seti-ve-trainvalidationtest-ayrımı) |
 | Test verisi model geliştirmede kullanılmamış | ✅ kodla garanti altında | [Bölüm 3](#3-veri-seti-ve-trainvalidationtest-ayrımı) |
 | Deney 1: train/val loss, train/val accuracy, test accuracy, eğitim süresi | ✅ | [Bölüm 4.4](#44-sonuçlar) |
 | Deney 1: loss ve accuracy grafikleri | ✅ | [Bölüm 4.4](#44-sonuçlar) |
-| Model yapılandırmalarının karşılaştırılması | ⏳ 8 deneyden 3'ü tamam (5.1 normalizasyon, 5.2 loss, 5.3 optimizer ve learning rate) | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
+| Model yapılandırmalarının karşılaştırılması | ⏳ 8 deneyden 4'ü tamam (5.1 normalizasyon, 5.2 loss, 5.3 optimizer ve learning rate, 5.4 derinlik ve genişlik) | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
 | Kullanılan hiperparametreler raporda | ✅ Deney 1 / ⏳ diğer deneyler | [Bölüm 4.2](#42-hiperparametreler), Bölüm 5–7 |
 | El yazısı görüntüleri: gri, 28×28, MNIST renk uyumu, normalizasyon | ⏳ | [Bölüm 8](#8-kendi-el-yazım-ile-değerlendirme) |
 | El yazısıyla öğrenci numarası görselleri repoda | ⏳ | [`el_yazisi/`](el_yazisi/) |
 | Deney sonuçları hakkında genel değerlendirme | ⏳ | [Bölüm 9](#9-genel-değerlendirme) |
-| Kodun çalıştırılabilir olması | ✅ kurulum, veri, Deney 1, Bölüm 5.1–5.3 / ⏳ diğer deneyler | [Bölüm 1](#1-ortam-ve-kurulum) |
+| Kodun çalıştırılabilir olması | ✅ kurulum, veri, Deney 1, Bölüm 5.1–5.4 / ⏳ diğer deneyler | [Bölüm 1](#1-ortam-ve-kurulum) |
 
 ## İçindekiler
 1. [Ortam ve Kurulum](#1-ortam-ve-kurulum)
@@ -72,6 +72,7 @@ Deneyleri çalıştırma (komutlar bu klasörde çalıştırılır; sonuçlar `r
 | `python src/karsilastirma.py 4a2_loss` | Loss fonksiyonu karşılaştırması, Adam (Bölüm 5.2) | ~3 dakika |
 | `python src/karsilastirma.py 4a2b_loss_sgd` | Loss fonksiyonu karşılaştırması, ek analiz: SGD (Bölüm 5.2) | ~2.5 dakika |
 | `python src/karsilastirma.py 4a3_optimizer_lr` | Optimizer ve learning rate karşılaştırması: 3 optimizer × 4–5 learning rate (Bölüm 5.3) | ~12 dakika |
+| `python src/karsilastirma.py 4a4_derinlik_genislik` | Derinlik ve genişlik: 1–4 gizli katman × 64–1024 nöron (Bölüm 5.4) | ~20 dakika |
 
 ## 2. Proje Yapısı
 
@@ -240,10 +241,10 @@ Deney 1'deki baseline'ın ayarları **tek tek** değiştirilerek karşılaştır
 | 5.1 | Girdi normalizasyonu | ham / min-max / standardizasyon | **Standardizasyon** |
 | 5.2 | Loss fonksiyonu | cross-entropy / MSE / hinge | **Cross-entropy** |
 | 5.3 | Optimizer ve learning rate | SGD / momentumlu SGD / Adam, her biri 4–5 learning rate ile | **Momentumlu SGD, lr = 0.01** |
-| 5.4 | Derinlik ve genişlik | 1–4 gizli katman, farklı nöron sayıları | ⏳ |
+| 5.4 | Derinlik ve genişlik | 1–4 gizli katman × 64–1024 nöron | **2 gizli katman × 256 nöron** |
 | 5.5 | Aktivasyon | ReLU / Sigmoid / Tanh | ⏳ |
-| 5.6 | Batch boyutu | 16 … 512 | ⏳ |
-| 5.7 | Regularization | dropout / weight decay / batch normalization | ⏳ |
+| 5.6 | Batch boyutu | 16 … 2048, learning rate sabit ya da batch ile orantılı | ⏳ |
+| 5.7 | Regularization | dropout / weight decay / batch normalization / veri artırma | ⏳ |
 | 5.8 | Epoch sayısı, early stopping ve model seçme ölçütü | | ⏳ |
 
 ### 5.1 Girdi normalizasyonu
@@ -507,6 +508,103 @@ Her optimizer'ın en iyi learning rate'iyle:
 - En iyi learning rate batch boyutuna bağlı olabilir (Bölüm 5.6). Optimizer, learning rate ve momentum Bölüm 6'da diğer ayarlarla birlikte yeniden aranacak.
 
 **Not – aynı ayarın tekrarları:** Düz SGD lr 0.1 burada %98.14 verdi (5.1'de %98.13, 5.2'de %98.03). Adam lr 0.001 ise %97.80 verdi (Deney 1'de %97.83, 5.1'de %97.75, 5.2'de %97.68). Tekrarlar arasındaki farklar yine 0.15 puanın içinde.
+
+### 5.4 Derinlik ve genişlik
+
+**Soru:** Kaç gizli katman (derinlik) ve her katmanda kaç nöron (genişlik) olmalı?
+
+**Tasarım:**
+- 1–4 gizli katman × 64 / 128 / 256 / 512 / 1024 nöron ızgarası denendi.
+- Her gizli katmanda aynı sayıda nöron var. Örneğin "3 katman × 256 nöron" = `784 → 256 → 256 → 256 → 10`. Böylece her model iki sayıyla tanımlanıyor ve derinliğin etkisi genişliğin etkisinden ayrı okunabiliyor.
+- Toplam 20 model × 3 seed = 60 eğitim.
+- Diğer bütün ayarlar Bölüm 5.3 sonundaki gibi: standardizasyon, cross-entropy, momentumlu SGD (lr = 0.01), batch 64, 20 epoch.
+- **1 gizli katmanlı modeller ödev şartını sağlamıyor.** Yalnızca derinliğin ne kazandırdığını görmek için denendi; seçilemezler.
+
+**Parametre sayısı:** `n` girdili, `m` çıktılı bir katmanda `n · m` ağırlık ve `m` bias var. Izgaradaki modeller 50 890 (1 × 64) ile 3 962 890 (4 × 1024) parametre arasında; yani aralarında ~78 kat fark var. Mevcut 256 → 128 modelinde 235 146 parametre var.
+- Genişliği 2 katına çıkarmak, ilk katmanı (`784 · w`) 2 kat, iç katmanları (`w · w`) 4 kat büyütüyor.
+- Bir katman eklemek `w² + w` parametre ekliyor: 64 nöronda ~4 bin, 1024 nöronda ~1 milyon.
+
+**Hipotezler:**
+- **(a) Kapasite:** Çok küçük modeller veriyi yeterince temsil edemeyebilir (underfitting). Büyük modeller ise regularization olmadan train setini daha kolay ezberler.
+- **(b) Derinlik:** Tek gizli katmanlı bir ağ, yeterince genişse her sürekli fonksiyona istenen yakınlıkta yaklaşabilir (evrensel yaklaşım teoremi; Cybenko, 1989; Hornik, 1991). Teorem bunun için kaç nöron gerektiğini söylemiyor. Derinlik, özellikleri katman katman birleştirerek aynı işi daha az parametreyle yapabilir. MNIST görece kolay bir problem olduğu için derinliğin etkisinin küçük olması beklendi.
+- **(c) Süre:** Küçük modellerde GPU kapasitesinin çok altında çalışıyor. Bu yüzden süre nöron sayısından çok, arka arkaya yapılan işlem sayısına, yani katman sayısına bağlı olabilir.
+
+**Seçim kuralı (sonuçlardan önce belirlendi):**
+1. Birincil ölçüt öncekilerle aynı. Seçilebilir modeller en az 2 gizli katmanlı olanlar (ödev şartı).
+2. Seçilebilir modellerin en iyisine 0.3 puandan yakın olanlar "eşit derecede iyi" sayılır.
+3. Bunlardan **en az parametreli** olan seçilir.
+   - Fark gürültü düzeyindeyse, büyük modelin daha iyi olduğuna dair bir kanıt yok. Küçük model daha hızlı eğitiliyor ve ezberleme kapasitesi daha düşük.
+   - Bu, model seçimindeki **"bir standart hata kuralı"**nın benzeri: hatası en iyi modelinkinden bir standart hata içinde kalan modellerin en sadesi seçilir (Hastie, Tibshirani ve Friedman, *The Elements of Statistical Learning*, 2009, Bölüm 7.10). Bizim 0.3 puanlık eşiğimiz aynı rolü oynuyor.
+   - Bölüm 5.0'daki ikincil ölçütlerden "sadelik"in bu deneydeki karşılığı parametre sayısı. Seçenekler tam da boyutta ayrıldığı için belirleyici ölçüt o. 1. epoch accuracy bu deneyde adil bir hız ölçüsü değil: büyük model bir epoch'ta daha çok öğrenebilir, ama o epoch'u daha pahalıya yapar.
+
+**Sonuçlar:**
+
+| Seçenek | Parametre | Val acc | Val loss (en düşük) | 1. epoch val acc | Train acc | En iyi epoch | Eğitim süresi (20 epoch) |
+|---|---|---|---|---|---|---|---|
+| 1 katman × 64 nöron | 50 890 | %97.36 ± 0.06 | 0.0912 ± 0.0027 | %94.48 ± 0.21 | %99.26 ± 0.21 | 8.3 ± 1.2 | 11.3 ± 0.1 sn |
+| 1 katman × 128 nöron | 101 770 | %97.91 ± 0.11 | 0.0756 ± 0.0015 | %94.93 ± 0.27 | %99.84 ± 0.10 | 11.0 ± 1.7 | 11.2 ± 0.0 sn |
+| 1 katman × 256 nöron | 203 530 | %97.94 ± 0.11 | 0.0684 ± 0.0023 | %95.22 ± 0.25 | %99.82 ± 0.14 | 9.3 ± 2.1 | 11.4 ± 0.1 sn |
+| 1 katman × 512 nöron | 407 050 | %98.12 ± 0.03 | 0.0650 ± 0.0015 | %95.41 ± 0.23 | %99.95 ± 0.02 | 10.7 ± 0.6 | 11.3 ± 0.0 sn |
+| 1 katman × 1024 nöron | 814 090 | %98.20 ± 0.05 | 0.0628 ± 0.0009 | %95.69 ± 0.29 | %99.95 ± 0.04 | 9.7 ± 1.5 | 11.3 ± 0.1 sn |
+| 2 katman × 64 nöron | 55 050 | %97.41 ± 0.15 | 0.0924 ± 0.0029 | %94.46 ± 0.38 | %99.44 ± 0.09 | 9.3 ± 0.6 | 13.5 ± 0.1 sn |
+| 2 katman × 128 nöron | 118 282 | %97.60 ± 0.10 | 0.0780 ± 0.0029 | %94.91 ± 0.34 | %99.32 ± 0.15 | 6.3 ± 0.6 | 14.8 ± 0.1 sn |
+| **2 katman × 256 nöron** | 269 322 | %97.99 ± 0.11 | 0.0700 ± 0.0016 | %95.21 ± 0.33 | %99.70 ± 0.31 | 7.7 ± 2.5 | 14.8 ± 0.1 sn |
+| 2 katman × 512 nöron | 669 706 | %98.23 ± 0.20 | 0.0672 ± 0.0002 | %95.44 ± 0.30 | %99.92 ± 0.11 | 9.3 ± 2.1 | 14.7 ± 0.0 sn |
+| 2 katman × 1024 nöron | 1 863 690 | %98.21 ± 0.17 | 0.0653 ± 0.0021 | %95.73 ± 0.32 | %99.92 ± 0.09 | 8.0 ± 2.0 | 14.8 ± 0.0 sn |
+| 3 katman × 64 nöron | 59 210 | %97.28 ± 0.18 | 0.0913 ± 0.0054 | %93.60 ± 1.25 | %98.74 ± 0.30 | 6.0 ± 1.0 | 15.4 ± 0.1 sn |
+| 3 katman × 128 nöron | 134 794 | %97.70 ± 0.10 | 0.0804 ± 0.0012 | %94.61 ± 0.69 | %99.42 ± 0.15 | 7.3 ± 1.2 | 18.1 ± 0.0 sn |
+| 3 katman × 256 nöron | 335 114 | %97.81 ± 0.22 | 0.0743 ± 0.0023 | %94.97 ± 0.48 | %99.40 ± 0.28 | 6.0 ± 1.0 | 18.1 ± 0.1 sn |
+| 3 katman × 512 nöron | 932 362 | %97.92 ± 0.11 | 0.0708 ± 0.0016 | %95.37 ± 0.36 | %99.53 ± 0.23 | 5.3 ± 1.5 | 18.3 ± 0.1 sn |
+| 3 katman × 1024 nöron | 2 913 290 | %98.05 ± 0.11 | 0.0703 ± 0.0030 | %95.53 ± 0.37 | %99.74 ± 0.11 | 6.0 ± 1.0 | 18.1 ± 0.0 sn |
+| 4 katman × 64 nöron | 63 370 | %97.22 ± 0.22 | 0.0954 ± 0.0062 | %92.84 ± 1.97 | %98.93 ± 0.19 | 7.3 ± 1.5 | 17.6 ± 0.1 sn |
+| 4 katman × 128 nöron | 151 306 | %97.45 ± 0.15 | 0.0863 ± 0.0051 | %93.73 ± 1.76 | %99.22 ± 0.04 | 6.3 ± 0.6 | 21.8 ± 0.0 sn |
+| 4 katman × 256 nöron | 400 906 | %97.75 ± 0.09 | 0.0784 ± 0.0011 | %94.50 ± 1.20 | %99.37 ± 0.25 | 5.7 ± 1.5 | 21.9 ± 0.1 sn |
+| 4 katman × 512 nöron | 1 195 018 | %97.82 ± 0.10 | 0.0762 ± 0.0031 | %95.19 ± 0.70 | %99.48 ± 0.31 | 6.0 ± 1.7 | 21.8 ± 0.0 sn |
+| 4 katman × 1024 nöron | 3 962 890 | %97.82 ± 0.19 | 0.0762 ± 0.0026 | %95.22 ± 0.94 | %99.54 ± 0.29 | 5.7 ± 2.1 | 22.0 ± 0.1 sn |
+
+![Derinlik ve genişlik ızgarası](results/karsilastirma/4a4_derinlik_genislik/izgara.png)
+
+*Her nokta bir modelin 3 seed ortalaması (en düşük validation loss'lu epoch'ta), hata çubukları ± standart sapma. Yatay eksen logaritmik; her adım 2 kat.*
+
+Her derinliğin en iyi modeli:
+
+| Seçenek | Parametre | Val acc | Val loss (en düşük) | 1. epoch val acc | Train acc | En iyi epoch | Eğitim süresi (20 epoch) |
+|---|---|---|---|---|---|---|---|
+| 1 katman × 1024 nöron | 814 090 | %98.20 ± 0.05 | 0.0628 ± 0.0009 | %95.69 ± 0.29 | %99.95 ± 0.04 | 9.7 ± 1.5 | 11.3 ± 0.1 sn |
+| 2 katman × 512 nöron | 669 706 | %98.23 ± 0.20 | 0.0672 ± 0.0002 | %95.44 ± 0.30 | %99.92 ± 0.11 | 9.3 ± 2.1 | 14.7 ± 0.0 sn |
+| 3 katman × 1024 nöron | 2 913 290 | %98.05 ± 0.11 | 0.0703 ± 0.0030 | %95.53 ± 0.37 | %99.74 ± 0.11 | 6.0 ± 1.0 | 18.1 ± 0.0 sn |
+| 4 katman × 512 nöron | 1 195 018 | %97.82 ± 0.10 | 0.0762 ± 0.0031 | %95.19 ± 0.70 | %99.48 ± 0.31 | 6.0 ± 1.7 | 21.8 ± 0.0 sn |
+
+![Her derinliğin en iyi modeli](results/karsilastirma/4a4_derinlik_genislik/egriler.png)
+
+- **Genişlik önemli, ama bir yere kadar.** 2 katmanda doğruluk 64 nörondan 512 nörona çıkarken %97.41'den %98.23'e yükseliyor; 1024'te artık artmıyor (%98.21). Diğer derinliklerde de aynı eğilim var. Hipotez (a) doğrulandı: küçük modeller anlamlı şekilde kötü.
+- **Derinlik bu problemde bir şey kazandırmadı.**
+  - Aynı genişlikte 1 ve 2 katman en iyi. 3 ve 4 katman çoğu genişlikte daha kötü: 4 × 256 %97.75, 2 × 256 %97.99.
+  - Tek gizli katmanlı 1 × 1024 (%98.20), ızgaranın en iyileri arasında. Hipotez (b) ile uyumlu: MNIST için tek bir geniş katman yeterli.
+  - Derin modellerin validation loss'u da daha yüksek: 4 × 256'da 0.078, 2 × 256'da 0.070.
+- **Derin modeller yavaş ve seed'e bağlı başlıyor.**
+  - 1. epoch'ta 4 × 64 %92.84 ± 1.97, 1 × 64 %94.48 ± 0.21.
+  - Sebep, PyTorch'un varsayılan başlangıç ağırlıkları. `nn.Linear` ağırlıkları `[−1/√n, 1/√n]` aralığından seçiliyor (varyans `1/(3n)`), ReLU da sinyalin yaklaşık yarısını sıfırlıyor. Hesaba göre sinyalin büyüklüğü her katmanda ~√6 ≈ 2.4 kat küçülüyor.
+  - Eğitilmemiş bir 4 × 256 modelde 1 000 validation görüntüsüyle ölçüldü: katman çıkışlarının standart sapması 0.56 → 0.23 → 0.10 → 0.05 şeklinde küçülüyor. ReLU için önerilen He başlangıcıyla (He vd., 2015) ise her katmanda ~1.4'te sabit kalıyor.
+  - Zayıf sinyal, küçük gradyan ve yavaş başlangıç demek. Bu ödevde başlangıç yöntemi ayrıca karşılaştırılmadı.
+- **Süre katman sayısıyla artıyor, genişlikle neredeyse hiç değişmiyor.** 1 katmanlı modellerin hepsi ~11.3 sn, 2 katmanlılar ~14.8 sn, 3 katmanlılar ~18 sn, 4 katmanlılar ~22 sn sürüyor; 64 nöron da 1024 nöron da aynı süreyi alıyor. Hipotez (c) doğrulandı.
+- **4 katmanlı modelin validation loss eğrisi** diğerlerinden yüksekte ve daha dalgalı seyrediyor.
+
+**Karar:**
+1. **En iyi seçilebilir model:** 2 × 512 (%98.23).
+2. **Eşik içindeki modeller:** 2 × 256 (%97.99), 2 × 512, 2 × 1024 (%98.21) ve 3 × 1024 (%98.05). 3 × 512 (%97.92) 0.31 puanla eşiğin hemen dışında kaldı.
+3. **Seçilen: 2 gizli katman × 256 nöron** (`784 → 256 → 256 → 10`, 269 322 parametre). Parametre sayısı 2 × 512'nin %40'ı, 2 × 1024'ün yedide biri.
+   - **Daha büyük modeller seçilmedi:** Doğrulukta ayırt edilemiyorlar, ama 2.5–11 kat daha fazla parametreleri var.
+   - **64 ve 128 nöronlu modeller seçilmedi:** Anlamlı şekilde kötüler (2 × 128, 0.63 puan geride).
+   - **3 ve 4 katman seçilmedi:** Aynı genişlikte kazanç getirmiyorlar; daha yavaşlar ve val loss'ları daha yüksek.
+   - **1 katman seçilemez:** ödev şartı.
+   - Mevcut 256 → 128 modelinden tek farkı, ikinci katmanın 128 yerine 256 nöron olması.
+
+**Sınırlar:**
+- 2 × 256'nın farkı 0.24 puan, yani eşiğe yakın; tekrarlanan bir çalıştırmada 2 × 512 seçilebilirdi. Kural önceden belirlendiği için sonucu olduğu gibi aldık.
+- Bütün modeller 256 → 128 modelinde seçilen learning rate (0.01) ile eğitildi. Çok farklı boyuttaki modellerin en iyi learning rate'i farklı olabilir.
+- Başlangıç ağırlıkları PyTorch'un varsayılanı; He başlangıcı derin modellere yardım edebilirdi.
+- Regularization yok. Büyük modeller regularization ile (Bölüm 5.7) daha iyi sonuç verebilir. Mimari, Bölüm 6'da diğer ayarlarla birlikte yeniden aranacak.
 
 ## 6. Ortak Hiperparametre Araması
 _(Aşama 4B–4C'de doldurulacak)_

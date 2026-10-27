@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from augment import augment_batch
 from model import MLP, count_parameters
 
 # Deney 1 (baseline) ayarları. Diğer deneyler yalnızca değiştirdikleri anahtarları verir.
@@ -23,7 +24,9 @@ DEFAULT_CONFIG = {
     "weight_decay": 0.0,
     "batch_size": 64,
     "epochs": 20,
-    "patience": None,     # early stopping: val loss bu kadar epoch iyileşmezse dur (None = kapalı)
+    "patience": None,     # early stopping: seçim ölçütü bu kadar epoch iyileşmezse dur (None = kapalı)
+    "select_by": "val_loss",  # en iyi epoch'u seçme ölçütü: "val_loss" (en düşük) ya da "val_acc" (en yüksek)
+    "augment": None,      # veri artırma (augment.py); None = kapalı
     "seed": 0,
 }
 
@@ -76,13 +79,14 @@ def warm_up(device):
     _warmed_up.add(str(device))
 
 
-def train_one_epoch(model, x, y, loss_fn, optimizer, batch_size, generator):
+def train_one_epoch(model, x, y, loss_fn, optimizer, batch_size, generator, augment=None):
     """Train verisinin tamamı üzerinden bir kez geçer (bir epoch)."""
     model.train()  # dropout / batchnorm eğitim davranışında
     perm = torch.randperm(len(x), device=x.device, generator=generator)  # her epoch farklı sıra
     for i in range(0, len(x), batch_size):
         idx = perm[i:i + batch_size]
-        logits = model(x[idx])           # 1) forward pass: tahmin
+        inputs = augment_batch(x[idx], augment, generator) if augment else x[idx]
+        logits = model(inputs)           # 1) forward pass: tahmin
         loss = loss_fn(logits, y[idx])   # 2) loss: ne kadar yanlış?
         optimizer.zero_grad()            # 3) önceki adımın gradyanlarını sıfırla
         loss.backward()                  # 4) backpropagation: her ağırlığın gradyanı
@@ -105,7 +109,9 @@ def train(config, data, device, verbose=True):
     """config'teki ayarlarla bir model eğitir.
 
     Her epoch sonunda train ve validation setinin tamamında loss/accuracy ölçülür.
-    Eğitim bitince model, validation loss'un en düşük olduğu epoch'un ağırlıklarına döndürülür.
+    Eğitim bitince model, en iyi epoch'un (varsayılan: en düşük validation loss) ağırlıklarına döndürülür.
+    data içinde "holdout" varsa her epoch onda da ölçülür; holdout seçimde kullanılmaz, yalnızca seçimin
+    ne kadar iyi olduğunu değerlendirmek içindir (4A-8).
     Süre yalnızca eğitim adımlarını kapsar (ölçüm kısmı hariç).
     """
     cfg = {**DEFAULT_CONFIG, **config}
@@ -120,12 +126,13 @@ def train(config, data, device, verbose=True):
     x_val, y_val = data["val"]
 
     history = []
-    best = {"val_loss": math.inf, "epoch": 0, "state": copy.deepcopy(model.state_dict())}
+    # Seçim ölçütü "küçük olan iyi" olacak şekilde: val loss olduğu gibi, val accuracy eksi işaretiyle
+    best = {"score": math.inf, "epoch": 0, "state": copy.deepcopy(model.state_dict())}
     epochs_without_improvement = 0
     for epoch in range(1, cfg["epochs"] + 1):
         sync(device)
         start = time.perf_counter()
-        train_one_epoch(model, x_train, y_train, loss_fn, optimizer, cfg["batch_size"], generator)
+        train_one_epoch(model, x_train, y_train, loss_fn, optimizer, cfg["batch_size"], generator, cfg["augment"])
         sync(device)
         epoch_seconds = time.perf_counter() - start
 
@@ -133,6 +140,8 @@ def train(config, data, device, verbose=True):
         val_loss, val_acc = evaluate(model, x_val, y_val, loss_fn)
         history.append({"epoch": epoch, "train_loss": train_loss, "train_acc": train_acc,
                         "val_loss": val_loss, "val_acc": val_acc, "epoch_seconds": epoch_seconds})
+        if "holdout" in data:
+            history[-1]["holdout_loss"], history[-1]["holdout_acc"] = evaluate(model, *data["holdout"], loss_fn)
         if verbose:
             print(f"epoch {epoch:>2}/{cfg['epochs']} | train loss {train_loss:.4f} acc %{train_acc * 100:.2f} | "
                   f"val loss {val_loss:.4f} acc %{val_acc * 100:.2f} | {epoch_seconds:.2f} sn")
@@ -141,14 +150,15 @@ def train(config, data, device, verbose=True):
             if verbose:
                 print("Loss sonsuz/NaN oldu (eğitim ıraksadı), eğitim durduruldu.")
             break
-        if val_loss < best["val_loss"]:
-            best = {"val_loss": val_loss, "epoch": epoch, "state": copy.deepcopy(model.state_dict())}
+        score = val_loss if cfg["select_by"] == "val_loss" else -val_acc
+        if score < best["score"]:
+            best = {"score": score, "epoch": epoch, "state": copy.deepcopy(model.state_dict())}
             epochs_without_improvement = 0
         else:
             epochs_without_improvement += 1
             if cfg["patience"] is not None and epochs_without_improvement >= cfg["patience"]:
                 if verbose:
-                    print(f"Early stopping: val loss {cfg['patience']} epoch boyunca iyileşmedi.")
+                    print(f"Early stopping: {cfg['select_by']} {cfg['patience']} epoch boyunca iyileşmedi.")
                 break
 
     model.load_state_dict(best["state"])  # en iyi epoch'un ağırlıklarına dön

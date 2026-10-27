@@ -1,4 +1,6 @@
 """Eğitim sonuçlarının grafikleri."""
+import warnings
+
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter, MaxNLocator, NullFormatter
@@ -17,17 +19,17 @@ def plot_histories(histories, best_epochs=None, title=None):
     Birden fazla eğitim verilirse çizgi ortalamayı, gölge ± standart sapmayı gösterir.
     Kesikli dikey çizgiler, her eğitimin en düşük val loss'lu epoch'udur.
     """
-    epochs = np.array([h["epoch"] for h in histories[0]])
     fig, (ax_loss, ax_acc) = plt.subplots(1, 2, figsize=(10, 3.8))
     panels = [(ax_loss, "loss", "Loss", 1), (ax_acc, "acc", "Accuracy (%)", 100)]
     for ax, key, label, scale in panels:
         for i, (split, name) in enumerate([("train", "Train"), ("val", "Validation")]):
-            values = np.array([[h[f"{split}_{key}"] * scale for h in history] for history in histories])
-            mean = values.mean(axis=0)
+            # Eğitimler farklı uzunlukta olabilir (early stopping); ortalama o epoch'a ulaşanlar üzerinden
+            epochs, values = _stack(histories, f"{split}_{key}", scale)
+            mean = np.nanmean(values, axis=0)
             color = plot_style.SERIES[i]
             ax.plot(epochs, mean, color=color, marker="o", markersize=4, label=name)
             if len(histories) > 1:
-                std = values.std(axis=0, ddof=1)
+                std = _nanstd(values)
                 ax.fill_between(epochs, mean - std, mean + std, color=color, alpha=0.2, linewidth=0)
         for best in sorted(set(best_epochs or [])):
             ax.axvline(best, color=plot_style.MUTED, linewidth=1, linestyle=(0, (4, 3)))
@@ -38,7 +40,7 @@ def plot_histories(histories, best_epochs=None, title=None):
     if best_epochs:
         # Çizgi sağ yarıdaysa yazıyı soluna koy ki grafiğin dışına taşmasın
         anchor = max(best_epochs)
-        right_half = anchor > (epochs[0] + epochs[-1]) / 2
+        right_half = anchor > (1 + max(len(h) for h in histories)) / 2
         text = "en iyi epoch\n(en düşük val loss)" if len(set(best_epochs)) == 1 else "seed'lerin en iyi\nepoch'ları"
         ax_loss.annotate(text, xy=(anchor if not right_half else min(best_epochs), 1.0),
                          xycoords=("data", "axes fraction"), xytext=(-4 if right_half else 4, -4),
@@ -49,6 +51,13 @@ def plot_histories(histories, best_epochs=None, title=None):
         fig.suptitle(title, x=0.01, ha="left", fontsize=12, fontweight="semibold", color=plot_style.INK)
     fig.tight_layout()
     return fig
+
+
+def _nanstd(values):
+    """Epoch başına std; o epoch'a tek bir eğitim ulaştıysa (early stopping) std 0 kabul edilir."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        return np.nan_to_num(np.nanstd(values, axis=0, ddof=1))
 
 
 def _stack(histories, key, scale):
@@ -86,7 +95,7 @@ def plot_comparison(results, title=None, metrics=None):
             ax.plot(epochs, mean, color=color, marker="o", markersize=3,
                     label=res["label"] if ax is axes[-1] else None)
             if len(histories) > 1:
-                std = np.nanstd(values, axis=0, ddof=1)
+                std = _nanstd(values)
                 ax.fill_between(epochs, mean - std, mean + std, color=color, alpha=0.15, linewidth=0)
 
     for ax, (_, label, _) in zip(axes, metrics):
@@ -101,32 +110,39 @@ def plot_comparison(results, title=None, metrics=None):
 
 
 def plot_lr_sweep(results, group_key, group_names, title=None):
-    """Learning rate taraması: her grup (ör. her optimizer) için learning rate'e göre validation sonuçları.
+    """Learning rate taraması: her grup (ör. her optimizer) için learning rate'e göre validation sonuçları."""
+    return plot_sweep(results, lambda config: config[group_key], lambda config: config["lr"], group_names,
+                      "Learning rate (logaritmik eksen)", title)
 
+
+def plot_sweep(results, group_of, x_of, group_names, x_label, title=None, log_base=10):
+    """Izgara taraması: her grup (ör. her optimizer) bir çizgi, x ekseninde taranan değer (ör. learning rate).
+
+    group_of, x_of: bir seçeneğin ayarlarından (config) grubunu ve x değerini bulan fonksiyonlar.
     Her nokta bir ayarın seed ortalaması, hata çubuğu ± standart sapma (en düşük val loss'lu epoch'ta).
     Iraksayan veya hiç öğrenemeyen ayarlar ölçeği bozmasın diye grafiğin altına × ile işaretlenir.
     """
     metrics = (("val_acc", "Validation accuracy (%)", 100), ("val_loss", "Validation loss (en düşük)", 1))
     fig, axes = plt.subplots(1, len(metrics), figsize=(10, 3.8))
-    groups = list(dict.fromkeys(res["config"][group_key] for res in results))
+    groups = list(dict.fromkeys(group_of(res["config"]) for res in results))
     any_failed = False
     for i, group in enumerate(groups):
         color = plot_style.SERIES[i]
-        members = sorted((res for res in results if res["config"][group_key] == group),
-                         key=lambda res: res["config"]["lr"])
+        members = sorted((res for res in results if group_of(res["config"]) == group),
+                         key=lambda res: x_of(res["config"]))
         for ax, (key, _, scale) in zip(axes, metrics):
-            lrs, means, stds, failed = [], [], [], []
+            xs, means, stds, failed = [], [], [], []
             for res in members:
                 values = [r[key] * scale for r in res["runs"] if not r["failed"]]
                 if not values:
-                    failed.append(res["config"]["lr"])
+                    failed.append(x_of(res["config"]))
                     continue
-                lrs.append(res["config"]["lr"])
+                xs.append(x_of(res["config"]))
                 means.append(np.mean(values))
                 stds.append(np.std(values, ddof=1) if len(values) > 1 else 0.0)
             label = group_names.get(group, group) if ax is axes[0] else None
-            if lrs:
-                ax.errorbar(lrs, means, yerr=stds, color=color, marker="o", markersize=4, capsize=3, label=label)
+            if xs:
+                ax.errorbar(xs, means, yerr=stds, color=color, marker="o", markersize=4, capsize=3, label=label)
             else:
                 ax.plot([], [], color=color, marker="o", label=label)
             if failed:
@@ -135,10 +151,10 @@ def plot_lr_sweep(results, group_key, group_names, title=None):
                         markeredgewidth=2, color=color, transform=ax.get_xaxis_transform(), clip_on=False)
 
     for ax, (_, label, _) in zip(axes, metrics):
-        ax.set_xscale("log")
+        ax.set_xscale("log", base=log_base)
         ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: np.format_float_positional(v, trim="-")))
         ax.xaxis.set_minor_formatter(NullFormatter())
-        ax.set_xlabel("Learning rate (logaritmik eksen)")
+        ax.set_xlabel(x_label)
         ax.set_title(label, loc="left")
     # Açıklama veriyi kapatmasın diye grafiklerin altında
     handles, labels = axes[0].get_legend_handles_labels()
