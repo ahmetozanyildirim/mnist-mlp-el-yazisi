@@ -17,10 +17,10 @@ Yapay Sinir Ağları dersi ödevi. MNIST veri seti üzerinde sıfırdan eğitile
 | Deney 1: loss ve accuracy grafikleri | ✅ | [Bölüm 4.4](#44-sonuçlar) |
 | Model yapılandırmalarının karşılaştırılması | ✅ 8 tek değişkenli deney (5.1 normalizasyon, 5.2 loss, 5.3 optimizer ve learning rate, 5.4 derinlik ve genişlik, 5.5 aktivasyon, 5.6 batch boyutu, 5.7 regularization, 5.8 epoch sayısı ve early stopping) + 60 denemelik ortak arama ve en iyilerin yeni seed'lerle doğrulanması (Bölüm 6) | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
 | Kullanılan hiperparametreler raporda | ✅ Deney 1, Bölüm 5 ve 6, final model | [Bölüm 4.2](#42-hiperparametreler), Bölüm 5–6, [Bölüm 7.1](#71-final-modelin-hiperparametreleri) |
-| El yazısı görüntüleri: gri, 28×28, MNIST renk uyumu, normalizasyon | ⏳ | [Bölüm 8](#8-kendi-el-yazım-ile-değerlendirme) |
-| El yazısıyla öğrenci numarası görselleri repoda | ⏳ | [`el_yazisi/`](el_yazisi/) |
+| El yazısı görüntüleri: gri, 28×28, MNIST renk uyumu, normalizasyon | ✅ MNIST tarzı ön işleme (ham ve ters renk ile karşılaştırıldı) | [Bölüm 8.1](#81-görüntülerin-hazırlanması) |
+| El yazısıyla öğrenci numarası görselleri repoda | ✅ 2 fotoğraf (`ham/`) + MNIST formatında 18 rakam (`islenmis/`) | [`el_yazisi/`](el_yazisi/), [Bölüm 8](#8-kendi-el-yazım-ile-değerlendirme) |
 | Deney sonuçları hakkında genel değerlendirme | ⏳ | [Bölüm 9](#9-genel-değerlendirme) |
-| Kodun çalıştırılabilir olması | ✅ kurulum, veri, Deney 1, Bölüm 5, 6 ve 7 / ⏳ Bölüm 8 | [Bölüm 1](#1-ortam-ve-kurulum) |
+| Kodun çalıştırılabilir olması | ✅ her bölüm tek komutla yeniden üretilebilir | [Bölüm 1](#1-ortam-ve-kurulum) |
 
 ## İçindekiler
 1. [Ortam ve Kurulum](#1-ortam-ve-kurulum)
@@ -81,6 +81,7 @@ Deneyleri çalıştırma (komutlar bu klasörde çalıştırılır; sonuçlar `r
 | `python src/arama.py dogrula` | En iyi 5 ayar + 4A'nın sonucu, 3 yeni seed'le; final ayarı seçer (Bölüm 6.3) | ~13 dakika |
 | `python src/final.py` | Final model: seçilen ayar 3 seed ile eğitilir, test setinde bir kez değerlendirilir, model kaydedilir (Bölüm 7) | ~30 saniye |
 | `python src/sure_olcumu.py --device cpu --hidden 256 256 --batch-size 512` | Bir epoch'luk eğitim süresi (CPU ya da GPU); Bölüm 7.5'teki ölçüm | birkaç saniye |
+| `python src/el_yazisi.py 269797005269797005` | Kendi el yazım: `el_yazisi/ham/` içindeki fotoğraflardaki rakamları bulur, üç ön işlemeyle final modele ve karşılaştırma için eğitilen veri artırmasız modele verir (Bölüm 8). Argüman fotoğraflardaki bütün rakamlar, sırayla. | ~20 saniye |
 
 ## 2. Proje Yapısı
 
@@ -1292,7 +1293,121 @@ Bütün eğitimler GPU'da (AMD Radeon RX 9070 XT, ROCm) yapıldı. Aynı eğitim
 - **Pratik sonuç:** Final model GPU'suz bir bilgisayarda da (standart PyTorch kurulumuyla) makul sürede eğitilebilir; bir epoch ~0.16 sn. GPU'nun asıl faydası Bölüm 5 ve 6'daki yüzlerce eğitimde ve büyük modellerde (ör. Bölüm 6'nın 2 × 1024'lük ayarlarında) ortaya çıktı.
 
 ## 8. Kendi El Yazım ile Değerlendirme
-_(Aşama 6'da doldurulacak)_
+
+Kod: [`src/el_yazisi.py`](src/el_yazisi.py) · Çalıştırma: `python src/el_yazisi.py 269797005269797005` · Fotoğraflar: [`el_yazisi/ham/`](el_yazisi/ham/) · MNIST formatındaki rakamlar: [`el_yazisi/islenmis/`](el_yazisi/islenmis/) · Sonuçlar: [`results/el_yazisi/`](results/el_yazisi/)
+
+Final model (Bölüm 7, [`results/final/model.pt`](results/final/model.pt)) yalnızca MNIST görüntülerini gördü: 28 × 28, siyah zemin üzerinde beyaz, ortalanmış rakamlar. Bu bölümde modele kendi el yazımla yazdığım öğrenci numaramı (**269797005**) verdim. Amaç, test setinde %98.7 başaran modelin gerçek hayattaki bir el yazısında ne yaptığını görmek.
+
+### 8.1 Görüntülerin hazırlanması
+
+**Yazım ve fotoğraf:**
+- Numara beyaz A4 kâğıda koyu renkli, kalın uçlu bir kalemle, rakamlar birbirine değmeden yazıldı.
+- **İki ayrı yazılış var:** birinde numara iki satıra bölündü (6 + 3 rakam), diğerinde tek satırda. Toplam 18 rakam.
+- Fotoğraflar telefonla çekildi. Kâğıt yan durduğu için fotoğraflar rakamlar dik olacak şekilde 90° döndürüldü (2000 × 1500 piksel).
+
+**Rakamları bulma:**
+1. Fotoğraf gri tona çevrilir ve mürekkep pikselleri bulunur. Işık fotoğraf boyunca değiştiği için eşik her bölge için ayrı hesaplanır (adaptive threshold).
+2. Birbirine bağlı mürekkep parçaları birer rakam sayılır.
+3. Kâğıdın dışı atılır: fotoğrafa giren halı ve kâğıdın kenar gölgesi rakam sanılmasın diye önce kâğıdın bölgesi bulunur. Görüntünün kenarına değen ve kâğıdın dışında kalan parçalar atılır.
+4. Çok küçük parçalar (leke, nokta) atılır.
+5. Rakamlar satır satır, soldan sağa sıralanır.
+
+![Bulunan rakamlar](results/el_yazisi/tespit.png)
+
+18 rakamın 18'i bulundu ve doğru sırada okundu.
+
+**Üç ön işleme karşılaştırıldı:**
+
+| Yöntem | Ne yapıyor? |
+|---|---|
+| **Ham** | Rakamın kutusunu doğrudan 28 × 28'e küçültüyor. Renkler fotoğraftaki gibi: açık zemin, koyu rakam. |
+| **Ters renk** | Aynısı, ama renkleri ters çeviriyor: koyu zemin, açık rakam. |
+| **MNIST tarzı** | MNIST'in kendi hazırlanma adımlarını (LeCun vd., 1998) izliyor (aşağıda). |
+
+**MNIST tarzı ön işlemenin adımları** ([`preprocess_mnist`](src/el_yazisi.py)):
+1. **Gri ton ve renk uyumu:** Renkler ters çevrilir; kâğıt tam siyah (0), mürekkep beyaz olur. Mürekkep ile kâğıt Otsu eşiğiyle ayrılır; mürekkep dışındaki gölge ve lekeler temizlenir.
+2. **Çizgi kalınlığı:** MNIST'te çizgi kalınlığı rakam yüksekliğinin ~%10'u. Çizgi daha inceyse bu orana gelene kadar kalınlaştırılır.
+3. **Boyut:** Rakam, oranı korunarak 20 × 20'lik bir kutuya sığdırılır (MNIST'in hazırlanışındaki gibi).
+4. **28 × 28 ve ortalama:** Rakam 28 × 28'lik siyah bir görüntüye yerleştirilir ve kütle merkezi tam ortaya, (14, 14)'e kaydırılır. MNIST'te ortalama kütle merkezi de bu nokta.
+5. **Normalizasyon:** Piksel değerleri [0, 1] aralığına getirilir ve eğitimdeki gibi train setinin ortalaması ve standart sapmasıyla standartlaştırılır: `(x − 0.1306) / 0.3081`.
+
+Ödevin istediği dört koşul böylece sağlanıyor: gri tonlu, 28 × 28, MNIST ile aynı renkler (siyah zemin, beyaz rakam) ve modelin eğitimindeki normalizasyon. MNIST formatındaki 18 rakam [`el_yazisi/islenmis/`](el_yazisi/islenmis/) klasöründe (`01_rakam-2.png`, `02_rakam-6.png`, …).
+
+![Üç ön işleme ve MNIST örnekleri](results/el_yazisi/on_isleme.png)
+
+*Üstteki üç satır üç ön işlemenin modele verilen hâli; en alt satır karşılaştırma için MNIST train setinden rastgele rakamlar (bizim rakamlarımızla aynı rakamlar değil).*
+
+### 8.2 Sonuçlar
+
+| Ön işleme | Final model (veri artırmalı) | Veri artırmasız model |
+|---|---|---|
+| Ham (yalnızca küçültme) | 0/18 doğru (%0), ortalama güven %100 | 0/18 doğru (%0), ortalama güven %71 |
+| Ters renk + küçültme | 0/18 doğru (%0), ortalama güven %95 | 0/18 doğru (%0), ortalama güven %55 |
+| **MNIST tarzı** | **18/18 doğru (%100)**, ortalama güven %99 | 18/18 doğru (%100), ortalama güven %100 |
+
+*Güven: modelin tahmin ettiği sınıfa verdiği olasılık. Veri artırmasız model Bölüm 8.3'te anlatılıyor.*
+
+![Final modelin tahminleri](results/el_yazisi/tahminler.png)
+
+- **Ham ve ters renkte 18 rakamın hiçbiri doğru değil.** Final model her rakama "1" diyor; ham görüntülerde %100 güvenle.
+  - Sebep arka plan. MNIST'in arka planı 0; standartlaştırınca −0.42. Fotoğraftaki kâğıt ise küçültülünce ~0.64; standartlaştırınca **+1.65**.
+  - Model için bu, görüntünün her yerinde mürekkep olması demek: eğitimde hiç görmediği bir girdi.
+  - Ters renkte zemin koyu ama tam siyah değil (~0.36, standartlaştırınca +0.75). Ayrıca rakam kutuyu kenarına kadar dolduruyor ve oranı bozuluyor.
+- **MNIST tarzı ön işlemeyle 18 rakamın 18'i doğru.** Numara iki yazılışta da doğru okundu: 269797005.
+- **Ortası çizgili 7'ler de tanındı** (%94–100). MNIST'teki 7'lerin çoğu çizgisiz yazılıyor, ama model bu farkı tolere etti.
+
+![Sınıf olasılıkları](results/el_yazisi/olasiliklar.png)
+
+*Her satır bir rakam: modelin 10 sınıfa verdiği olasılıklar (%1'in altındakiler yazılmadı).*
+
+- **En düşük güven %94:** 2. yazılıştaki 7 (2. olasılık "3", %6). En kararsız diğer rakamlar 1. yazılıştaki 6 (%96; 2. olasılık "5") ve 2. yazılıştaki 9 (%96; 2. olasılık "3").
+
+**Dağılım farkı (distribution shift):** Model "rakamları" değil, "MNIST formatındaki rakamları" tanımayı öğrendi. Aynı rakamlar, MNIST'in hazırlanış biçimine getirilmeden verildiğinde doğruluk %100'den %0'a düşüyor. Gerçek bir uygulamada iki yol var: ya girdi eğitim verisine benzetilir (ön işleme), ya da eğitim verisi gerçek dünyadaki çeşitliliğe yaklaştırılır (veri artırma). Bu çalışmada ikisi birlikte kullanıldı.
+
+**Model yanlışken de emin:** Final model ham görüntülerde %100 güvenle yanlış cevap veriyor; hiç görmediği bir girdiye "bilmiyorum" diyemiyor. Softmax olasılığı, eğitim dağılımının dışındaki girdilerde doğruluğun güvenilir bir göstergesi değil. Bölüm 7.4'teki test hatalarında da model yanlışken %90–100 emindi.
+
+### 8.3 Veri artırmanın etkisi
+
+Final model veri artırmayla eğitildi (Bölüm 5.7). Etkisini görmek için aynı ayarın **veri artırmasız** bir kopyası da eğitildi: 3 seed, validation accuracy'si en yüksek olanın modeli; validation %98.11. Test seti kullanılmadı.
+
+**Değiştirilmiş validation görüntülerinde** (bütün görüntülere aynı dönüşüm uygulandı; [`results/el_yazisi/dayaniklilik.md`](results/el_yazisi/dayaniklilik.md)):
+
+| Validation görüntüleri | Final model (veri artırmalı) | Veri artırmasız model |
+|---|---|---|
+| Orijinal | %98.92 | %98.11 |
+| 15° döndürülmüş | %97.38 | %94.61 |
+| 3 piksel sağa kaydırılmış | %96.19 | %56.44 |
+| %80'e küçültülmüş | %97.52 | %88.61 |
+| %120'ye büyütülmüş | %98.39 | %92.21 |
+
+- **Veri artırmasız model 3 piksellik bir kaymada %56'ya düşüyor.** MLP her pikseli ayrı bir girdi olarak görüyor; "aynı şekil 3 piksel sağda" bilgisini kendiliğinden bilmiyor. Bunu ancak eğitimde örneklerini görerek öğrenebiliyor. (CNN'ler bu bilgiyi mimarilerinde taşır.)
+- **Veri artırmalı model bu dönüşümlerde yalnızca 0.5–2.7 puan kaybediyor.** Bu dönüşümlerin hepsi eğitimdeki veri artırmanın aralığının dışında (±10°, ±2 piksel, ±%10); model biraz daha büyük değişikliklere de dayanıklı.
+
+![İki modelin tahminleri](results/el_yazisi/iki_model.png)
+
+- **Kendi rakamlarımda iki model de 18/18.** MNIST tarzı ön işleme rakamı zaten 20 × 20'lik kutuya sığdırıp kütle merkezini ortalıyor, yani kayma ve boyut farklarını kendisi gideriyor. Veri artırmanın sağlamlığı bu yüzden burada fark yaratmadı.
+- Ön işleme kusurlu olduğunda ise fark görüldü (Bölüm 8.4): ilk çalıştırmada kesilen bir 7'nin kenarında komşu rakamdan bir parça vardı. Veri artırmasız model onu %95 güvenle 9 sandı; veri artırmalı model %54 güvenle doğru bildi.
+- **Ham görüntülerde iki modelin davranışı farklı:** Veri artırmalı model %100 emin bir şekilde yanlış ("1"); veri artırmasız model daha kararsız (ortalama %71; hepsine "3"). Veri artırma doğruluğu ve sağlamlığı artırdı, ama dağılım dışındaki girdilerde aşırı güveni azaltmadı.
+
+### 8.4 Kod üzerinde yapılan düzeltmeler
+
+Rakamları bulma ve kesme kodu önce bilgisayarda üretilmiş sahte rakamlarla denenmişti. Gerçek fotoğraflar üç eksik ortaya çıkardı; hepsi düzeltildi. **Modele dokunulmadı**; değişiklikler yalnızca rakamların fotoğraftan çıkarılmasıyla ilgili.
+
+| Sorun | Belirti | Düzeltme |
+|---|---|---|
+| Kâğıdın etrafındaki halı ve kâğıt kenarı tek büyük bir parça olarak algılandı | Bu parça "en büyük rakam" sanıldı, gerçek rakamlar "fazla küçük" diye elendi | Kâğıdın bölgesi bulunuyor; görüntünün kenarına değen ve kâğıdın dışında kalan parçalar atılıyor |
+| Rakamlar yalnızca soldan sağa sıralanıyordu | İki satırlı yazıda alt satır, üst satırdaki rakamlarla birleşiyordu | Rakamlar önce satırlara ayrılıyor |
+| Kesilen rakamın kenar payında komşu rakamın parçaları kalıyordu (2. yazılışta 9 ile 7 birbirine çok yakın) | İlk çalıştırmada o 7'yi final model %54 güvenle doğru, veri artırmasız model %95 güvenle **9** bildi | Kenar payına düşen kısım kâğıt rengiyle örtülüyor |
+
+İlk iki düzeltme fotoğraflar görüldükten sonra, modelle ilk çalıştırmadan önce yapıldı. Üçüncüsü ilk çalıştırmadan sonra yapıldı ve bölüm yeniden çalıştırıldı. İlk çalıştırmada final model yine 18/18 doğruydu; veri artırmasız model 17/18.
+
+### 8.5 Değerlendirme ve sınırlar
+
+- **Final model kendi el yazımdaki 18 rakamın 18'ini doğru tanıdı**, ama yalnızca rakamlar MNIST'in hazırlanış biçimine getirildikten sonra. Ön işleme olmadan hiçbirini tanımadı. Bu bölümün asıl sonucu, eğitim verisi ile gerçek veri arasındaki farkın ne kadar belirleyici olduğu.
+- **Örnek küçük:** Tek bir kişinin, iki yazılışta 9 farklı rakamı (18 görüntü). Bu yüzden "%100" test setindeki %98.74 gibi güvenilir bir oran değil; bir iki rakam farklı yazılsa sonuç değişebilirdi.
+- **Koşullar elverişliydi:** Rakamlar büyük, kalın kalemle, birbirine değmeden ve dikkatle yazıldı; kâğıt düz ve ışık eşitti. Bitişik yazılmış ya da ince bir kalemle yazılmış rakamlarda hem bulma hem tanıma zorlaşır.
+- **Rakam bulma adımı bu fotoğraflar üzerinde düzeltildi** (Bölüm 8.4). Model aynı kaldı, ama bulma kodu bu fotoğraflara göre iyileştirildiği için başka fotoğraflarda başka sorunlar çıkabilir.
+- **Ön işlemenin ayarları** (çizgi kalınlığı oranı, eşikler) MNIST'in istatistiklerine göre seçildi; çok farklı bir kalem ya da kâğıtta ayar gerekebilir.
 
 ## 9. Genel Değerlendirme
 _(Aşama 7'de doldurulacak)_
