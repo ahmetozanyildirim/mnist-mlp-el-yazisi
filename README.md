@@ -2,7 +2,9 @@
 
 Yapay Sinir Ağları dersi ödevi. MNIST veri seti üzerinde sıfırdan eğitilen bir Multi-Layer Perceptron (MLP) ile el yazısı rakam tanıma; farklı model yapılandırmalarının karşılaştırılması ve modelin kendi el yazımla yazdığım öğrenci numarası üzerindeki başarısının değerlendirilmesi.
 
-> Bu dosya ödevin raporudur. Bölümler deneyler ilerledikçe doldurulmaktadır.
+> Bu dosya ödevin raporudur.
+>
+> **Özet:** Seçilen MLP (2 gizli katman × 256 nöron, ReLU, momentumlu SGD, veri artırma, early stopping) test setinde **%98.74 ± 0.07** doğruluğa ulaştı; başlangıçtaki temel model %97.83'teydi. Kendi el yazımla yazdığım öğrenci numaramın 18 rakamının 18'i, MNIST formatına getirildikten sonra doğru tanındı; bu ön işleme olmadan hiçbiri tanınmadı. Sonuçlar [Bölüm 7](#7-final-model-ve-test-sonucu) ve [Bölüm 8](#8-kendi-el-yazım-ile-değerlendirme)'de, genel değerlendirme [Bölüm 9](#9-genel-değerlendirme)'da.
 
 ## Ödev Gereksinimleri ve Karşılandığı Yer
 
@@ -19,7 +21,7 @@ Yapay Sinir Ağları dersi ödevi. MNIST veri seti üzerinde sıfırdan eğitile
 | Kullanılan hiperparametreler raporda | ✅ Deney 1, Bölüm 5 ve 6, final model | [Bölüm 4.2](#42-hiperparametreler), Bölüm 5–6, [Bölüm 7.1](#71-final-modelin-hiperparametreleri) |
 | El yazısı görüntüleri: gri, 28×28, MNIST renk uyumu, normalizasyon | ✅ MNIST tarzı ön işleme (ham ve ters renk ile karşılaştırıldı) | [Bölüm 8.1](#81-görüntülerin-hazırlanması) |
 | El yazısıyla öğrenci numarası görselleri repoda | ✅ 2 fotoğraf (`ham/`) + MNIST formatında 18 rakam (`islenmis/`) | [`el_yazisi/`](el_yazisi/), [Bölüm 8](#8-kendi-el-yazım-ile-değerlendirme) |
-| Deney sonuçları hakkında genel değerlendirme | ⏳ | [Bölüm 9](#9-genel-değerlendirme) |
+| Deney sonuçları hakkında genel değerlendirme | ✅ | [Bölüm 9](#9-genel-değerlendirme) |
 | Kodun çalıştırılabilir olması | ✅ her bölüm tek komutla yeniden üretilebilir | [Bölüm 1](#1-ortam-ve-kurulum) |
 
 ## İçindekiler
@@ -86,14 +88,35 @@ Deneyleri çalıştırma (komutlar bu klasörde çalıştırılır; sonuçlar `r
 ## 2. Proje Yapısı
 
 ```
-├── README.md            ← rapor
+├── README.md                  ← rapor
 ├── requirements.txt
-├── src/                 ← kaynak kodlar
+├── src/
+│   ├── data.py                ← MNIST'i indirme, train/validation/test ayrımı, standardizasyon
+│   ├── model.py               ← MLP
+│   ├── train.py               ← eğitim döngüsü, ölçüm, early stopping
+│   ├── augment.py             ← veri artırma (döndürme, kaydırma, ölçekleme)
+│   ├── deney1.py              ← Deney 1 (Bölüm 4)
+│   ├── karsilastirma.py       ← tek değişkenli karşılaştırmalar (Bölüm 5)
+│   ├── epoch_secimi.py        ← epoch / early stopping / seçim ölçütü kuralları (Bölüm 5.8)
+│   ├── arama.py               ← ortak arama ve doğrulama (Bölüm 6)
+│   ├── final.py               ← final model ve tek seferlik test (Bölüm 7)
+│   ├── sure_olcumu.py         ← CPU / GPU süre ölçümü (Bölüm 7.5)
+│   ├── el_yazisi.py           ← kendi el yazımın hazırlanması ve değerlendirilmesi (Bölüm 8)
+│   ├── explore_data.py        ← veri seti grafikleri (Bölüm 3)
+│   ├── plots.py, plot_style.py ← grafikler
+│   └── device.py, check_device.py ← GPU / CPU seçimi ve ortam kontrolü
 ├── el_yazisi/
-│   ├── ham/             ← el yazısıyla öğrenci numarası fotoğrafları (ham hâli)
-│   └── islenmis/        ← MNIST formatına getirilmiş 28×28 hâli
-└── results/             ← deney sonuçları ve grafikler
+│   ├── ham/                   ← el yazımla öğrenci numaramın fotoğrafları
+│   └── islenmis/              ← MNIST formatına getirilmiş 28 × 28 rakamlar
+└── results/
+    ├── deney1/                ← Bölüm 4
+    ├── karsilastirma/         ← Bölüm 5 (her deney ayrı klasörde: tablo, grafikler, ham sonuçlar)
+    ├── arama/                 ← Bölüm 6 (denemeler, doğrulama, seçilen ayar)
+    ├── final/                 ← Bölüm 7 (test sonucu, hata analizi, model.pt)
+    └── el_yazisi/             ← Bölüm 8
 ```
+
+MNIST verisi depoda yok; kod ilk çalıştığında `data/` klasörüne otomatik indiriliyor.
 
 ## 3. Veri Seti ve Train/Validation/Test Ayrımı
 
@@ -142,11 +165,11 @@ Her görüntü 784 uzunluğunda bir vektöre düzleştirilir (MLP girdisi). Stan
 | Yalnızca train (kullanılan) | 0,1306 | 0,3081 |
 | Train + validation + test | 0,1309 | 0,3084 |
 
-Validation ve test verisi istatistik hesabına katılsaydı, model değerlendirme verisi hakkında önceden bilgi almış olurdu (**veri sızıntısı**). MNIST'te iki değer arasındaki fark çok küçüktür. Yine de doğru yöntem, gerçek hayattaki durumu taklit etmektir: model eğitilirken gelecekteki verinin istatistiği bilinmez. Aynı train istatistikleri kendi el yazısı görüntülerimize de uygulanacaktır.
+Validation ve test verisi istatistik hesabına katılsaydı, model değerlendirme verisi hakkında önceden bilgi almış olurdu (**veri sızıntısı**). MNIST'te iki değer arasındaki fark çok küçüktür. Yine de doğru yöntem, gerçek hayattaki durumu taklit etmektir: model eğitilirken gelecekteki verinin istatistiği bilinmez. Aynı train istatistikleri kendi el yazısı görüntülerime de uygulandı (Bölüm 8.1).
 
 Ortalamanın düşük (0,13) olmasının nedeni piksellerin **%80,9'unun tamamen siyah** olmasıdır; rakam görüntünün yalnızca küçük bir bölümünü kaplar.
 
-Alternatif normalizasyon yöntemleri (ham [0–255], [0–1] ölçekleme) Bölüm 5'te karşılaştırılacaktır.
+Alternatif normalizasyon yöntemleri (ham [0–255], [0–1] ölçekleme) Bölüm 5.1'de karşılaştırıldı.
 
 ## 4. Deney 1 – Temel MLP Modeli
 
@@ -183,7 +206,7 @@ girdi: 784 piksel (28×28 görüntü düzleştirilmiş, standardize edilmiş)
 | Model seçimi | En düşük validation loss'lu epoch | Eğitim sonunda o epoch'un ağırlıkları geri yüklenir |
 | Tekrar | 3 seed (0, 1, 2) | Sonuçlar ortalama ± standart sapma olarak verilir |
 
-Bu değerler bilinçli olarak sade ve yaygın başlangıç değerleri olarak seçildi. Her birinin alternatifleri Bölüm 5'te deneyle karşılaştırılacak.
+Bu değerler bilinçli olarak sade ve yaygın başlangıç değerleri olarak seçildi. Her birinin alternatifleri Bölüm 5'te deneyle karşılaştırıldı.
 
 ### 4.3 Ölçüm yöntemi
 
@@ -223,8 +246,8 @@ Donanım: AMD Radeon RX 9070 XT (ROCm), PyTorch 2.14.0+rocm10.1.0, Python 3.12
 
    Model belli bir noktadan sonra genel kalıpları öğrenmek yerine train setine özgü ayrıntıları ezberliyor. Baseline'da hiçbir regularization olmadığı için bu beklenen bir sonuç.
 3. **Validation loss artarken validation accuracy düşmüyor.** Validation accuracy 5. epoch'ta %97.52, 20. epoch'ta %97.72. Cross-entropy, modelin yanlış tahminlerine ne kadar emin olduğunu da cezalandırır. Eğitim ilerledikçe model aşırı özgüvenli hâle geliyor: yanlış bildiği görüntü sayısı pek değişmiyor, ama bu yanlışlarda giderek daha emin oluyor. Accuracy bunu görmüyor, loss görüyor.
-4. **En iyi epoch seed'e göre 4 ile 9 arasında değişiyor**, çünkü ortalama validation loss bu aralıkta oldukça düz seyrediyor. Model seçme ölçütü (validation loss mu, validation accuracy mi) ve early stopping Bölüm 5'te incelenecek.
-5. **Seed'ler arası değişkenlik küçük.** Accuracy'deki standart sapma 0.1–0.3 puan. Sonraki karşılaştırmalarda bu büyüklükteki farklar anlamlı kabul edilmeyecek.
+4. **En iyi epoch seed'e göre 4 ile 9 arasında değişiyor**, çünkü ortalama validation loss bu aralıkta oldukça düz seyrediyor. Model seçme ölçütü (validation loss mu, validation accuracy mi) ve early stopping Bölüm 5.8'de incelendi.
+5. **Seed'ler arası değişkenlik küçük.** Accuracy'deki standart sapma 0.1–0.3 puan. Sonraki karşılaştırmalarda bu büyüklükteki farklar anlamlı kabul edilmedi (Bölüm 5.0).
 6. **Eğitim süresi.** 20 epoch GPU'da 16.5 sn sürdü. Validation loss 5. epoch civarında en düşük seviyeye indiği için 20 epoch'un büyük kısmı genellemeye katkı sağlamadı. Early stopping hem overfitting'i hem eğitim süresini azaltabilir (Bölüm 5).
 
 ## 5. Karşılaştırmalı Deneyler
@@ -243,7 +266,7 @@ Deney 1'deki baseline'ın ayarları **tek tek** değiştirilerek karşılaştır
 6. Fark anlamlı değilse **ikincil ölçütlere** bakılır: yakınsama hızı (1. epoch validation accuracy), validation loss, eğitim süresi, sadelik ve sağlamlık. Bunlar da ayırt etmiyorsa mevcut ayarda kalınır.
 7. Kazanan seçenek, bir sonraki deneyin başlangıç ayarına eklenir.
 
-**Yöntemin sınırı:** Ayarları tek tek değiştirmek, ayarlar arasındaki etkileşimleri gözden kaçırabilir. Örneğin en iyi learning rate, batch boyutuna bağlı olabilir. Bu sınırlama Bölüm 6'da bütün ayarlar birlikte aranarak kontrol edilecek.
+**Yöntemin sınırı:** Ayarları tek tek değiştirmek, ayarlar arasındaki etkileşimleri gözden kaçırabilir. Örneğin en iyi learning rate, batch boyutuna bağlı olabilir. Bu sınırlama Bölüm 6'da bütün ayarlar birlikte aranarak kontrol edildi.
 
 | # | Deney | Seçenekler | Karar |
 |---|---|---|---|
@@ -307,7 +330,7 @@ Deney 1'deki baseline'ın ayarları **tek tek** değiştirilerek karşılaştır
    - Min-max seçilmedi: doğrulukta ayırt edilemedi ama daha yavaş yakınsıyor.
    - Ham piksel seçilmedi: Adam'da kötü, SGD'de hiç öğrenemiyor.
 
-**Sonraki deneyler için gözlem:** Düz SGD + standardizasyon, Adam + standardizasyondan daha yüksek validation accuracy'ye (%98.13'e karşı %97.75) ve daha düşük validation loss'a (0.072'ye karşı 0.079) ulaştı. SGD'nin validation loss'u Adam'daki gibi yükselmedi. Optimizer kararı Bölüm 5.3'te bu ipucu dikkate alınarak verilecek.
+**Sonraki deneyler için gözlem:** Düz SGD + standardizasyon, Adam + standardizasyondan daha yüksek validation accuracy'ye (%98.13'e karşı %97.75) ve daha düşük validation loss'a (0.072'ye karşı 0.079) ulaştı. SGD'nin validation loss'u Adam'daki gibi yükselmedi. Optimizer kararı Bölüm 5.3'te bu ipucu dikkate alınarak verildi.
 
 ### 5.2 Loss fonksiyonu
 
@@ -395,7 +418,7 @@ Her seçeneğin loss'u farklı bir ölçekte olduğu için validation loss değe
 
 **Not – aynı ayarın tekrarları:** Adam + cross-entropy + standardizasyon ayarı Deney 1'de %97.83, Bölüm 5.1'de %97.75, burada %97.68 verdi. SGD + cross-entropy + standardizasyon ayarı ise 5.1'de %98.13, burada %98.03 verdi. Aynı ayarın farklı çalıştırmaları arasında 0.15 puana varan bu farklar, GPU'daki tekrarlanamazlıktan kaynaklanıyor (Bölüm 4.3). Bu da 0.3 puanlık anlamlılık eşiğinin neden gerekli olduğunu gösteriyor.
 
-**Sonraki deneyler için gözlem:** Düz SGD + cross-entropy bu deneyde de Adam + cross-entropy'den yüksek çıktı (%98.03'e karşı %97.68). Böylece SGD iki ayrı deneyde Adam'ın önüne geçmiş oldu. Optimizer kararı Bölüm 5.3'te verilecek.
+**Sonraki deneyler için gözlem:** Düz SGD + cross-entropy bu deneyde de Adam + cross-entropy'den yüksek çıktı (%98.03'e karşı %97.68). Böylece SGD iki ayrı deneyde Adam'ın önüne geçmiş oldu. Optimizer kararı Bölüm 5.3'te verildi.
 
 ### 5.3 Optimizer ve learning rate
 
@@ -512,9 +535,9 @@ Her optimizer'ın en iyi learning rate'iyle:
 - Momentum (0.9) ve Adam'ın β değerleri sabit tutuldu; ayarlanmadı.
 - 20 epoch sınırı, düşük learning rate'leri dezavantajlı bırakıyor.
   - SGD lr 0.01 ve momentumlu SGD lr 0.001'de üç seed'in de en iyi epoch'u 20; Adam lr 0.0001'de ortalama 17.7.
-  - Bu ayarlar daha uzun eğitimde yükselebilir. Epoch sayısı Bölüm 5.8'de ele alınacak.
+  - Bu ayarlar daha uzun eğitimde yükselebilir. Epoch sayısı Bölüm 5.8'de ele alındı.
 - Learning rate eğitim boyunca sabit; zamanla azalan learning rate denenmedi.
-- En iyi learning rate batch boyutuna bağlı olabilir (Bölüm 5.6). Optimizer, learning rate ve momentum Bölüm 6'da diğer ayarlarla birlikte yeniden aranacak.
+- En iyi learning rate batch boyutuna bağlı olabilir (Bölüm 5.6). Optimizer, learning rate ve momentum Bölüm 6'da diğer ayarlarla birlikte yeniden arandı.
 
 **Not – aynı ayarın tekrarları:** Düz SGD lr 0.1 burada %98.14 verdi (5.1'de %98.13, 5.2'de %98.03). Adam lr 0.001 ise %97.80 verdi (Deney 1'de %97.83, 5.1'de %97.75, 5.2'de %97.68). Tekrarlar arasındaki farklar yine 0.15 puanın içinde.
 
@@ -613,7 +636,7 @@ Her derinliğin en iyi modeli:
 - 2 × 256'nın farkı 0.24 puan, yani eşiğe yakın; tekrarlanan bir çalıştırmada 2 × 512 seçilebilirdi. Kural önceden belirlendiği için sonucu olduğu gibi aldık.
 - Bütün modeller 256 → 128 modelinde seçilen learning rate (0.01) ile eğitildi. Çok farklı boyuttaki modellerin en iyi learning rate'i farklı olabilir.
 - Başlangıç ağırlıkları PyTorch'un varsayılanı; He başlangıcı derin modellere yardım edebilirdi.
-- Regularization yok. Büyük modeller regularization ile (Bölüm 5.7) daha iyi sonuç verebilir. Mimari, Bölüm 6'da diğer ayarlarla birlikte yeniden aranacak.
+- Regularization yok. Büyük modeller regularization ile (Bölüm 5.7) daha iyi sonuç verebilir. Mimari, Bölüm 6'da diğer ayarlarla birlikte yeniden arandı.
 
 ### 5.5 Aktivasyon fonksiyonu
 
@@ -792,7 +815,7 @@ Her kuralın en iyisi:
    - **Batch 2048 seçilmedi:** iki kuralda da kararsız ya da yetersiz.
    - **Sabit learning rate ile büyük batch'ler seçilmedi:** güncelleme sayısı yetmiyor.
 
-**Pratik etkisi:** Bir eğitim ~16 sn yerine ~2 sn sürüyor. Sonraki deneyler ve Bölüm 6'daki ortak arama ~8 kat daha hızlı olacak.
+**Pratik etkisi:** Bir eğitim ~16 sn yerine ~2 sn sürüyor. Sonraki deneyler ve Bölüm 6'daki ortak arama bu sayede ~8 kat daha hızlı çalıştı.
 
 **Sınırlar:**
 - Seçilen ayar eşiğe çok yakın (0.29 puan) ve validation loss'u en iyilerden biraz yüksek (0.073'e karşı ~0.070). Tekrarlanan bir çalıştırmada başka bir batch boyutu seçilebilirdi.
@@ -880,10 +903,10 @@ Her yöntemin en iyisi:
    - **Güçlü seçilmedi:** Anlamlı şekilde kötü.
    - **Dropout, weight decay ve batch normalization seçilmedi:** "Yok"tan iyiler, ama veri artırmanın 0.7 puan ve daha fazla gerisindeler.
 
-**Neden bu kadar etkili?** Dropout ve weight decay modeli kısıtlıyor; ezberlemeyi zorlaştırıyorlar ama modele yeni bir şey öğretmiyorlar. Veri artırma ise doğru bir ön bilgi ekliyor: biraz eğik, kaymış ya da büyümüş bir rakam hâlâ aynı rakam. MLP'nin girdisi düz bir 784'lük vektör olduğu için bu bilgi modelin yapısında yok: rakam bir piksel kayınca MLP için bambaşka bir girdi oluşuyor. (CNN'lerde kaymaya karşı duyarsızlık katmanların yapısından gelir; bu ödevde CNN kullanılmıyor.) Veri artırma bu duyarsızlığı modele veri yoluyla öğretiyor. Bu sağlamlık, kendi el yazımla yapılacak değerlendirmede (Bölüm 8) daha da önemli olacak.
+**Neden bu kadar etkili?** Dropout ve weight decay modeli kısıtlıyor; ezberlemeyi zorlaştırıyorlar ama modele yeni bir şey öğretmiyorlar. Veri artırma ise doğru bir ön bilgi ekliyor: biraz eğik, kaymış ya da büyümüş bir rakam hâlâ aynı rakam. MLP'nin girdisi düz bir 784'lük vektör olduğu için bu bilgi modelin yapısında yok: rakam bir piksel kayınca MLP için bambaşka bir girdi oluşuyor. (CNN'lerde kaymaya karşı duyarsızlık katmanların yapısından gelir; bu ödevde CNN kullanılmıyor.) Veri artırma bu duyarsızlığı modele veri yoluyla öğretiyor. Bu sağlamlığın kendi el yazımdaki etkisi Bölüm 8.3'te incelendi.
 
 **Sınırlar:**
-- Yöntemler tek tek denendi. Birlikte kullanımları (ör. veri artırma ile dropout ya da batch normalization) Bölüm 6'daki ortak aramada denenecek.
+- Yöntemler tek tek denendi. Birlikte kullanımları (ör. veri artırma ile dropout ya da batch normalization) Bölüm 6'daki ortak aramada denendi.
 - Veri artırmalı modeller 20. epoch'ta hâlâ gelişiyordu; 20 epoch sınırı onları dezavantajlı bırakıyor. Epoch sayısı Bölüm 5.8'de ele alınıyor.
 - Hafif ile orta arasındaki fark (0.29 puan) eşiğe çok yakın; batch 1024 ile yapılan ilk ön denemede orta biraz öndeydi. Veri artırmanın diğer yöntemlere üstünlüğü ise ön denemelerde de açıktı.
 
@@ -1008,7 +1031,7 @@ Bir kural epoch'u bir veriye bakarak seçiyorsa, aynı verideki sonucu iyimser o
 Doğruluk ~1.2 puan arttı, eğitim süresi ~4 kat kısaldı. Kazancın büyük kısmı veri artırmadan (Bölüm 5.7), hızın büyük kısmı batch boyutundan (Bölüm 5.6) geliyor.
 
 **Sınırlar:**
-- Kurallar yalnızca bu tek ayarda karşılaştırıldı. Patience 5, gürültüsü daha büyük ayarlarda erken durabilir; Bölüm 6'da aynı kural bütün denemelere uygulanacak.
+- Kurallar yalnızca bu tek ayarda karşılaştırıldı. Patience 5, gürültüsü daha büyük ayarlarda erken durabilir; Bölüm 6'da aynı kural bütün denemelere uygulandı.
 - 3 seed ve 5 000 görüntülük yarılarla 0.1 puanlık farklar gürültü düzeyinde; holdout standart sapmaları 0.17'ye kadar çıkıyor.
 - Seçim adımlarından biri (süre farkının anlamlı sayılmaması) sonuçlar görüldükten sonra eklendi. Bu adım olmasa seçilecek kural (val acc, patience 5) da eşiğin içindeydi; iki kural bu çalıştırmada üç seed'in ikisinde birebir aynı sonucu verdi.
 
@@ -1186,7 +1209,7 @@ Sayılar, 50 farklı denemenin (ortak ilk 10 bir kez sayıldı) başarılı 49'u
 **Sınırlar:**
 - 3 seed ile 0.1–0.2 puanlık farklar gürültü düzeyinde.
 - Arama 60 denemeyle sınırlıydı; daha büyük bir bütçe daha iyi ayarlar bulabilirdi.
-- Validation seti Bölüm 5 ve 6'da çok sayıda karar için kullanıldı; validation skorları bu yüzden biraz iyimser. Tarafsız tahmini test seti verecek (Bölüm 7).
+- Validation seti Bölüm 5 ve 6'da çok sayıda karar için kullanıldı; validation skorları bu yüzden biraz iyimser. Tarafsız tahmini test seti verdi (Bölüm 7).
 
 ## 7. Final Model ve Test Sonucu
 
@@ -1272,7 +1295,7 @@ Bu bölüm bir karar için değil, modeli anlamak için. Analiz, validation accu
 
 - **Bir kısmını bir insan da zor okur:** "l" gibi yazılmış bir 6, çok soluk bir 9, 7'ye benzeyen 2'ler. Bazılarının etiketi bile tartışmalı.
 - **Bir kısmı ise açık hatalar:** düzgün bir 8'i %91 güvenle 3, kalın ve net bir 5'i %90 güvenle 3 sanıyor. MLP görüntüyü 784 ayrı piksel olarak görüyor; çizgilerin nasıl birleştiğini, yani şeklin yapısını kendiliğinden bilmiyor. Bu, MLP'nin bilinen bir sınırı. (CNN'ler bu yapıyı mimarilerinde taşır; ödev gereği CNN kullanılmadı.)
-- **Model yanlışken de çok emin olabiliyor** (%90–100). Yüksek güven, doğru olmanın garantisi değil; bu Bölüm 8'de kendi el yazımda da önemli olacak.
+- **Model yanlışken de çok emin olabiliyor** (%90–100). Yüksek güven, doğru olmanın garantisi değil; aynı durum kendi el yazımda da görüldü (Bölüm 8.2).
 
 ### 7.5 Eğitim süresi: CPU ve GPU
 
@@ -1410,4 +1433,59 @@ Rakamları bulma ve kesme kodu önce bilgisayarda üretilmiş sahte rakamlarla d
 - **Ön işlemenin ayarları** (çizgi kalınlığı oranı, eşikler) MNIST'in istatistiklerine göre seçildi; çok farklı bir kalem ya da kâğıtta ayar gerekebilir.
 
 ## 9. Genel Değerlendirme
-_(Aşama 7'de doldurulacak)_
+
+### 9.1 Sonuçların özeti
+
+| | Deney 1 (temel model) | Final model |
+|---|---|---|
+| Model | 2 × (256 → 128), ReLU, Adam (lr 0.001), batch 64, 20 epoch, regularization yok | 2 × 256, ReLU, momentumlu SGD (lr 0.08), batch 512, veri artırma, early stopping |
+| Validation accuracy | %97.83 ± 0.21 | %98.88 ± 0.06 |
+| **Test accuracy** | %97.83 ± 0.08 | **%98.74 ± 0.07** |
+| Test setindeki hata (10 000 görüntüde) | ~217 | ~126 |
+| Eğitim süresi (GPU) | ~16.5 sn | ~3.5 sn |
+| Kendi el yazım (MNIST tarzı ön işlemeyle) | – | 18/18 |
+
+Ödevin bütün şartları sağlandı: CNN ve hazır model yok, en az 2 gizli katman ve ReLU, cross-entropy ve SGD ailesinden bir optimizer, açık train/validation/test ayrımı, test setinin yalnızca en sonda bir kez kullanılması, raporlanan hiperparametreler ve yeniden çalıştırılabilir kod (tablo: [Ödev Gereksinimleri](#ödev-gereksinimleri-ve-karşılandığı-yer)).
+
+### 9.2 Hangi hiperparametre ne kadar önemliydi?
+
+Bölüm 5'in tek değişkenli deneyleri, etkisi büyükten küçüğe:
+
+| Ayar | Etkisi | Bölüm |
+|---|---|---|
+| **Veri artırma** | En büyük kazanç: validation accuracy ~+1 puan; train–validation farkı neredeyse sıfırlandı. Dropout, weight decay ve batch normalization yalnızca ~0.15–0.25 puan getirdi. | 5.7 |
+| **Learning rate** | Optimizer'ın kendisinden daha önemli. Her optimizer kendi en iyi learning rate'iyle %97.9–98.1'e ulaştı; yanlış learning rate ise öğrenmeyi yavaşlattı ya da durdurdu. | 5.3, 5.5 |
+| **Girdi ölçeği** | Ham pikseller (0–255) Adam ile ~1 puan kötü, SGD ile hiç öğrenemedi (ReLU'ların çoğu öldü); [0, 1] ölçekleme ile standardizasyon arasında anlamlı fark yok. | 5.1 |
+| **Loss** | Adam ile cross-entropy ve MSE benzer; SGD ile MSE çok daha yavaş öğreniyor (gradyanı küçük). | 5.2 |
+| **Epoch sayısı** | Veri artırma ile model daha uzun öğreniyor; early stopping eğitimi ~20–45. epoch'ta kendiliğinden durduruyor. | 5.8 |
+| **Mimari** | 2 × 256'nın üstü (daha geniş ya da daha derin) regularization olmadan anlamlı bir kazanç getirmedi. | 5.4 |
+| **Aktivasyon** | ReLU, Sigmoid ve Tanh, her biri kendi learning rate'iyle ayırt edilemedi. | 5.5 |
+| **Batch boyutu** | Learning rate batch ile orantılı büyütülünce doğruluğa etkisi yok; yalnızca hızı değiştiriyor (batch 512 ile ~8 kat hızlı). | 5.6 |
+
+**Ayarlar birlikte arandığında** (Bölüm 6) etkileşimler görüldü: büyük modeller (2–3 × 1024) ancak batch normalization, dropout ve veri artırma ile birlikte en üste çıktı. Ama kazanç küçüktü: yeni seed'lerle ölçülünce en iyi ayar, Bölüm 5'in tek tek bulduğu ayardan yalnızca ~0.3 puan iyiydi. Bu problemde tek değişkenli yöntem büyük bir kayba yol açmadı.
+
+### 9.3 Yöntem üzerine çıkarımlar
+
+- **Gürültüyü ölçmeden karar verilmemeli.** Aynı ayar farklı seed'lerle ±0.1–0.2 puan farklı sonuç veriyor. Bu yüzden her seçenek 3 seed ile eğitildi ve 0.3 puanın altındaki farklar anlamlı sayılmadı. Karşılaştırılan seçeneklerin çoğu bu eşiğin altında kaldı; asıl farkı ikincil ölçütler (hız, kararlılık, sadelik) belirledi.
+- **Kurallar sonuçlardan önce belirlendi.** Böylece her deneyde "en iyi görüneni" seçme eğilimi sınırlandı. İki karar eşiğe çok yakındı (Bölüm 5.6 ve 6.3'te 0.29 puan); ikisinde de kural uygulandı ve sınırda olduğu açıkça yazıldı. Sonuçlar görüldükten sonra yapılan iki değişiklik de ayrıca belirtildi (Bölüm 5.8'deki süre adımı, Bölüm 8.4'teki kesim düzeltmeleri).
+- **Birçok denemenin en iyisi iyimserdir.** Aramanın en iyi 5 ayarının dördü yeni seed'lerle düştü ve sıralama değişti (Bölüm 6.3). Validation setine bakarak verilen kararlar da validation skorunu biraz iyimser yaptı: final model validation'da %98.88, testte %98.74. Farkın küçük olması, test setini en sona saklamanın ve kararları yalnızca validation'a göre vermenin işe yaradığını gösteriyor.
+- **Seçim ölçütü önemli.** En iyi epoch'u validation accuracy yerine validation loss'a göre seçmek daha az iyimser ve daha kararlı sonuç verdi (Bölüm 5.8).
+
+### 9.4 Eğitim verisi ve gerçek dünya
+
+Bölüm 8'in sonucu ödevin belki de en önemli çıkarımı: Test setinde %98.7 başaran model, kendi fotoğrafımdaki rakamları MNIST'in hazırlanış biçimine getirmeden **hiçbirini** tanıyamadı; getirince **hepsini** tanıdı. Model "rakamları" değil, "MNIST formatındaki rakamları" tanımayı öğrendi. Test setindeki başarı, ancak gerçek veri eğitim verisine benzediği ölçüde gerçek dünyaya taşınıyor.
+
+Bu farkı kapatmanın iki yolu birlikte kullanıldı:
+- **Girdiyi eğitim verisine benzetmek** (ön işleme): renkleri çevirmek, kalınlığı ve boyutu ayarlamak, ortalamak.
+- **Eğitim verisini çeşitlendirmek** (veri artırma): veri artırmasız model 3 piksellik bir kaymada %56'ya düşerken veri artırmalı model %96'da kaldı.
+
+Model, eğitim dağılımının dışındaki girdilerde de çok emin konuşuyor (ham fotoğraflarda %100 güvenle yanlış). Softmax olasılığı bu yüzden "model emin, demek ki doğru" diye okunmamalı.
+
+### 9.5 Sınırlar ve geliştirilebilecekler
+
+- **MLP'nin yapısal sınırı:** MLP görüntüyü 784 bağımsız piksel olarak görüyor; komşu piksellerin ilişkisini ve kaymaya karşı duyarsızlığı yalnızca veriden öğrenebiliyor. Test hatalarının bir kısmı (ör. net bir 8'i 3 sanmak) bundan kaynaklanıyor. CNN'ler bu bilgiyi mimarilerinde taşır ve MNIST'te daha yüksek doğruluğa ulaşır; ödev gereği kullanılmadı.
+- **Veri artırma yalnızca afin dönüşümlerle** (döndürme, kaydırma, ölçekleme) yapıldı. Esnek bozulmalar (elastic distortion) ya da çizgi kalınlığı değişiklikleri gibi el yazısına daha yakın dönüşümler denenmedi.
+- **Arama bütçesi küçüktü** (60 deneme, her biri tek seed). Daha büyük bir bütçe biraz daha iyi bir ayar bulabilirdi; Bölüm 6.3'e göre beklenen kazanç birkaç onda bir puan.
+- **Güven ayarı (kalibrasyon) incelenmedi.** Modelin olasılıklarını daha gerçekçi yapmak (ör. temperature scaling) ya da dağılım dışındaki girdileri fark etmek bu çalışmanın kapsamı dışında kaldı.
+- **El yazısı örneği küçük:** tek bir kişinin iki yazılışı, 18 rakam. Daha çok kişiden, farklı kalem ve kâğıtlarla toplanmış rakamlar daha güvenilir bir ölçüm verirdi.
+- **Tekrarlanabilirlik:** Seed'ler sabit, ama kullanılan ROCm GPU'da aynı kod yeniden çalıştırıldığında sonuçlar son basamaklarda değişebiliyor (Bölüm 4.3). Raporlanan sayılar bu yüzden birkaç seed'in ortalaması ± standart sapması.
