@@ -19,15 +19,11 @@ yeni seed'lerle (1, 2, 3) yeniden eğitilir; final ayar bu yeniden ölçüme gö
 """
 import json
 import sys
-import warnings
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-
-# Optuna'nın kullandığı ilerleme çubuğu kütüphanesi (tqdm), Jupyter'de zararsız bir uyarı veriyor
-warnings.filterwarnings("ignore", message="IProgress not found")
-import optuna  # noqa: E402
+import optuna
 from matplotlib.ticker import FuncFormatter
 
 import plot_style
