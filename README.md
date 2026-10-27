@@ -15,12 +15,12 @@ Yapay Sinir Ağları dersi ödevi. MNIST veri seti üzerinde sıfırdan eğitile
 | Test verisi model geliştirmede kullanılmamış | ✅ kodla garanti altında | [Bölüm 3](#3-veri-seti-ve-trainvalidationtest-ayrımı) |
 | Deney 1: train/val loss, train/val accuracy, test accuracy, eğitim süresi | ✅ | [Bölüm 4.4](#44-sonuçlar) |
 | Deney 1: loss ve accuracy grafikleri | ✅ | [Bölüm 4.4](#44-sonuçlar) |
-| Model yapılandırmalarının karşılaştırılması | ⏳ 8 deneyden 7'si tamam (5.1 normalizasyon, 5.2 loss, 5.3 optimizer ve learning rate, 5.4 derinlik ve genişlik, 5.5 aktivasyon, 5.6 batch boyutu, 5.7 regularization) | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
+| Model yapılandırmalarının karşılaştırılması | ⏳ 8 tek değişkenli deneyin hepsi tamam (5.1 normalizasyon, 5.2 loss, 5.3 optimizer ve learning rate, 5.4 derinlik ve genişlik, 5.5 aktivasyon, 5.6 batch boyutu, 5.7 regularization, 5.8 epoch sayısı ve early stopping); ortak arama sırada | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
 | Kullanılan hiperparametreler raporda | ✅ Deney 1 / ⏳ diğer deneyler | [Bölüm 4.2](#42-hiperparametreler), Bölüm 5–7 |
 | El yazısı görüntüleri: gri, 28×28, MNIST renk uyumu, normalizasyon | ⏳ | [Bölüm 8](#8-kendi-el-yazım-ile-değerlendirme) |
 | El yazısıyla öğrenci numarası görselleri repoda | ⏳ | [`el_yazisi/`](el_yazisi/) |
 | Deney sonuçları hakkında genel değerlendirme | ⏳ | [Bölüm 9](#9-genel-değerlendirme) |
-| Kodun çalıştırılabilir olması | ✅ kurulum, veri, Deney 1, Bölüm 5.1–5.7 / ⏳ diğer deneyler | [Bölüm 1](#1-ortam-ve-kurulum) |
+| Kodun çalıştırılabilir olması | ✅ kurulum, veri, Deney 1, Bölüm 5.1–5.8 / ⏳ diğer aşamalar | [Bölüm 1](#1-ortam-ve-kurulum) |
 
 ## İçindekiler
 1. [Ortam ve Kurulum](#1-ortam-ve-kurulum)
@@ -76,6 +76,7 @@ Deneyleri çalıştırma (komutlar bu klasörde çalıştırılır; sonuçlar `r
 | `python src/karsilastirma.py 4a5_aktivasyon` | Aktivasyon: ReLU / Sigmoid / Tanh, her biri 4–5 learning rate ile (Bölüm 5.5) | ~11 dakika |
 | `python src/karsilastirma.py 4a6_batch` | Batch boyutu: 16–2048, iki learning rate kuralıyla (Bölüm 5.6) | ~15 dakika |
 | `python src/karsilastirma.py 4a7_regularization` | Regularization: dropout / weight decay / batch normalization / veri artırma, farklı güçlerde (Bölüm 5.7) | ~1.5 dakika |
+| `python src/karsilastirma.py 4a8_epoch` | Epoch sayısı, early stopping ve seçim ölçütü: 100 epoch × 3 seed, 10 kural (Bölüm 5.8) | ~1 dakika |
 
 ## 2. Proje Yapısı
 
@@ -248,7 +249,7 @@ Deney 1'deki baseline'ın ayarları **tek tek** değiştirilerek karşılaştır
 | 5.5 | Aktivasyon | ReLU / Sigmoid / Tanh, her biri 4–5 learning rate ile | **ReLU** (ödev şartı), lr = 0.01 |
 | 5.6 | Batch boyutu | 16 … 2048, learning rate sabit ya da batch ile orantılı | **Batch 512, lr = 0.08** |
 | 5.7 | Regularization | dropout / weight decay / batch normalization / veri artırma, farklı güçlerde | **Veri artırma, hafif güçte** |
-| 5.8 | Epoch sayısı, early stopping ve model seçme ölçütü | | ⏳ |
+| 5.8 | Epoch sayısı, early stopping ve model seçme ölçütü | 10–100 epoch / early stopping (patience 5, 10); seçim val loss ya da val acc ile | **Early stopping: val loss, patience 5, en fazla 100 epoch** |
 
 ### 5.1 Girdi normalizasyonu
 
@@ -880,6 +881,131 @@ Her yöntemin en iyisi:
 - Yöntemler tek tek denendi. Birlikte kullanımları (ör. veri artırma ile dropout ya da batch normalization) Bölüm 6'daki ortak aramada denenecek.
 - Veri artırmalı modeller 20. epoch'ta hâlâ gelişiyordu; 20 epoch sınırı onları dezavantajlı bırakıyor. Epoch sayısı Bölüm 5.8'de ele alınıyor.
 - Hafif ile orta arasındaki fark (0.29 puan) eşiğe çok yakın; batch 1024 ile yapılan ilk ön denemede orta biraz öndeydi. Veri artırmanın diğer yöntemlere üstünlüğü ise ön denemelerde de açıktı.
+
+### 5.8 Epoch sayısı, early stopping ve model seçme ölçütü
+
+**Üç soru:**
+1. **Epoch sayısı:** 20 epoch yetiyor mu? Bölüm 5.7'de veri artırmalı model 20. epoch'ta hâlâ gelişiyordu.
+2. **Early stopping:** Eğitimi sabit bir epoch'ta bitirmek yerine, validation sonucu iyileşmeyi bıraktığında durdurmak daha mı iyi?
+3. **Model seçme ölçütü:** Deney 1'den beri en iyi epoch'u en düşük validation **loss**'a göre seçiyoruz. En yüksek validation **accuracy**'ye göre seçmek daha mı iyi?
+
+**Yöntem: bir uzun eğitim, birçok kural.** Bölüm 5.7 sonundaki ayar (veri artırma, hafif) 3 seed ile **100 epoch** eğitildi; her epoch'un ölçümleri kaydedildi. Her kural bu kaydın üzerinde sonradan uygulandı ([`src/epoch_secimi.py`](src/epoch_secimi.py)):
+- "20 epoch, en düşük val loss": kaydın ilk 20 epoch'una bak, val loss'un en düşük olduğu epoch'u seç.
+- "Early stopping, patience 5": kaydı baştan oku; ölçüt 5 epoch üst üste iyileşmezse dur, o ana kadarki en iyi epoch'u seç.
+
+Bu, kuralı eğitim sırasında uygulamakla aynı sonucu veriyor: early stopping eğitimi yalnızca erken keser, kesilene kadarki epoch'lar birebir aynıdır.
+
+**Validation seti ikiye bölündü** (5 000 + 5 000 görüntü, sabit rastgele bölme):
+- **Seçim yarısı:** Kurallar epoch'u buna bakarak seçiyor.
+- **Holdout yarısı:** Seçilen epoch'un gerçekte ne kadar iyi olduğu buna bakarak ölçülüyor.
+
+Bir kural epoch'u bir veriye bakarak seçiyorsa, aynı verideki sonucu iyimser olur (**seçim yanlılığı**). "En yüksek val accuracy" kuralı örneğin 100 gürültülü sayının en büyüğünü seçiyor; o sayı kısmen şans. Kuralları adil karşılaştırmak için seçime karışmamış bir veri gerekiyor. Test seti kullanılamayacağı için validation'ın yarısı ayrıldı.
+
+**Karşılaştırılan kurallar:**
+
+| Grup | Kurallar | Hangi soruya cevap? |
+|---|---|---|
+| Sabit epoch, en düşük val loss | 10 / 20 (mevcut) / 40 / 100 epoch | Kaç epoch yeterli? |
+| Sabit epoch, en yüksek val acc | 20 / 100 epoch | Seçim ölçütü loss mu, accuracy mi? |
+| Early stopping (en fazla 100 epoch) | val loss ya da val acc; patience 5 ya da 10 | Ne zaman durmalı? |
+
+*Patience: ölçüt kaç epoch üst üste iyileşmezse durulacağı.*
+
+**Karar kuralı (sonuçlardan önce belirlendi):**
+1. Birincil ölçüt **holdout accuracy**. En iyisine 0.3 puandan yakın kurallar eşit derecede iyi.
+2. Seçilen kural Bölüm 6'da çok farklı ayarlarla kullanılacak. Sabit bir epoch sayısı yalnızca bu ayar için doğru olabilir: düşük learning rate'li bir ayar 20 epoch'ta yetişemeyebilir, yüksek olan 10 epoch'ta overfit edebilir. Early stopping her ayara kendiliğinden uyum sağlıyor. Bu yüzden eşit derecede iyi kurallardan **early stopping kuralları** tercih edilir.
+3. Eşit derecede iyi early stopping kurallarından **en kısa sürede biten** seçilir.
+
+**100 epoch'luk eğitim:**
+
+![100 epoch'luk eğitim](results/karsilastirma/4a8_epoch/uzun_egitim.png)
+
+*Kesikli dikey çizgiler 10, 20 ve 40. epoch'lar.*
+
+- **Train accuracy yavaş yükseliyor:** 100. epoch'ta ~%99.8, train loss ~0.006. Veri artırma yüzünden model train setini hızla ezberleyemiyor.
+- **Validation loss uzun süre iniyor, sonra düzleşiyor.** Seçim yarısında 20. epoch'ta ~0.040, 40. epoch'ta ~0.034. Deney 1'deki gibi yükselişe geçmiyor; veri artırmasız modellerde val loss ~9. epoch'ta en düşüktü (Bölüm 5.7).
+- **Validation accuracy** 20. epoch'ta ~%98.8, 40. epoch'ta ~%99.0; sonra %99.0–99.2 arasında dalgalanıyor.
+- **Seed'lerin en düşük val loss'lu epoch'ları çok farklı: 40, 84 ve 58.** Val loss uzun bir düzlükte olduğu için en düşük noktası neredeyse rastgele bir yere düşüyor.
+- **Eğriler epoch'tan epoch'a zikzaklı.** Her epoch'ta farklı rastgele dönüşümler kullanıldığı için ağırlıklar epoch'tan epoch'a biraz farklı yerlere gidiyor.
+- **Holdout yarısının loss'u bütün eğitim boyunca seçim yarısınınkinden biraz düşük.** Rastgele bölünen iki yarının zorluğu biraz farklı. Bu yüzden seçim yanlılığı, iki yarının farkıyla değil, aynı kuralın iki ölçütle seçilmiş hâlleri karşılaştırılarak değerlendirildi.
+
+**Kuralların sonuçları:**
+
+| Kural | Durduğu epoch | Seçilen epoch | Val acc (seçim yarısı) | Holdout acc | Holdout loss | Eğitim süresi |
+|---|---|---|---|---|---|---|
+| 10 epoch, en düşük val loss | 10.0 ± 0.0 | 8.7 ± 0.6 | %98.45 ± 0.14 | %98.35 ± 0.04 | 0.0483 ± 0.0020 | 1.4 ± 0.1 sn |
+| 20 epoch, en düşük val loss (mevcut) | 20.0 ± 0.0 | 17.7 ± 1.2 | %98.81 ± 0.12 | %99.02 ± 0.02 | 0.0348 ± 0.0009 | 2.8 ± 0.1 sn |
+| 40 epoch, en düşük val loss | 40.0 ± 0.0 | 39.3 ± 1.2 | %99.15 ± 0.10 | %99.05 ± 0.06 | 0.0317 ± 0.0009 | 5.4 ± 0.2 sn |
+| 100 epoch, en düşük val loss | 100.0 ± 0.0 | 60.7 ± 22.1 | %99.21 ± 0.07 | %99.12 ± 0.07 | 0.0318 ± 0.0014 | 13.4 ± 0.2 sn |
+| 20 epoch, en yüksek val acc | 20.0 ± 0.0 | 19.7 ± 0.6 | %98.93 ± 0.03 | %98.87 ± 0.13 | 0.0362 ± 0.0027 | 2.8 ± 0.1 sn |
+| 100 epoch, en yüksek val acc | 100.0 ± 0.0 | 83.0 ± 15.1 | %99.29 ± 0.04 | %99.13 ± 0.11 | 0.0310 ± 0.0052 | 13.4 ± 0.2 sn |
+| **Early stopping: val loss, patience 5** | 32.0 ± 11.4 | 27.0 ± 11.4 | %99.03 ± 0.15 | %99.04 ± 0.07 | 0.0333 ± 0.0016 | 4.4 ± 1.5 sn |
+| Early stopping: val loss, patience 10 | 39.7 ± 9.3 | 29.7 ± 9.3 | %99.07 ± 0.12 | %98.96 ± 0.17 | 0.0347 ± 0.0034 | 5.4 ± 1.3 sn |
+| Early stopping: val acc, patience 5 | 31.3 ± 11.8 | 26.3 ± 11.8 | %99.03 ± 0.15 | %98.98 ± 0.16 | 0.0336 ± 0.0021 | 4.3 ± 1.6 sn |
+| Early stopping: val acc, patience 10 | 47.7 ± 9.7 | 37.7 ± 9.7 | %99.15 ± 0.09 | %98.95 ± 0.17 | 0.0328 ± 0.0049 | 6.5 ± 1.1 sn |
+
+*Eğitim süresi: kural durana kadar geçen süre. Sıralama ve seçim: [`results/karsilastirma/4a8_epoch/kurallar.md`](results/karsilastirma/4a8_epoch/kurallar.md).*
+
+- **10 epoch yetmiyor:** En iyiden 0.78 puan geride; anlamlı şekilde kötü olan tek kural.
+- **20 epoch'tan sonrası küçük bir kazanç.**
+  - 20 epoch (mevcut) holdout'ta %99.02; en iyiden (%99.13) yalnızca 0.11 puan geride, eşiğin içinde.
+  - Daha uzun eğitim holdout loss'u düşürüyor: 20 epoch'ta 0.0348, 40 ve 100 epoch'ta ~0.032.
+  - Accuracy'deki kazanç ise 0.1 puan civarında; 3 seed ile ayırt edilemiyor.
+- **Early stopping kuralları ortalama 31–48. epoch'ta duruyor.** Val loss ile patience 5'te seed'ler 24, 45 ve 27. epoch'ta duruyor; süre 100 epoch'un üçte biri.
+- **Val loss ile val acc'ye bakan patience 5 kuralları bu çalıştırmada neredeyse aynı.**
+  - İki seed'de aynı epoch'ta durup aynı epoch'u seçiyorlar.
+  - Üçüncü seed'de val acc kuralı 2 epoch erken duruyor (25'e karşı 27) ve holdout'ta biraz kötü.
+  - Ön denemede ise val acc'ye bakan patience 5 anlamlı şekilde kötüydü (~0.4 puan): val accuracy epoch'tan epoch'a zıpladığı için kural gürültüyü "iyileşme yok" sanıp erken durmuştu.
+
+**Seçim yanlılığı:** Aynı kural iki ölçütle uygulandığında, seçim yarısındaki accuracy ile holdout accuracy arasındaki fark (pozitifse kural kendi seçtiği veride iyimser görünüyor):
+
+| Kural | Val loss ile seçince | Val acc ile seçince |
+|---|---|---|
+| 20 epoch | −0.21 | +0.05 |
+| 100 epoch | +0.09 | +0.15 |
+| Early stopping, patience 5 | −0.01 | +0.05 |
+| Early stopping, patience 10 | +0.11 | +0.19 |
+
+- Dört karşılaştırmanın dördünde de val acc ile seçim daha iyimser (0.06–0.26 puan). Beklenen bu: val accuracy, birkaç görüntünün doğru ya da yanlış sınıflanmasıyla zıplayan gürültülü bir ölçü. En yükseğini seçmek, şansı da seçmek demek. Val loss ise her görüntüye verilen olasılığa bakan, daha pürüzsüz bir ölçü.
+- Holdout'ta ise iki ölçüt eşit: val acc ile seçmek daha iyi bir model bulmuyor (100 epoch'ta %99.13'e karşı %99.12, patience 5'te %98.98'e karşı %99.04).
+- Farklar küçük ve 3 seed × 5 000 görüntüyle gürültülü; tek başına kesin bir sonuç değil, ama yön her satırda aynı.
+
+**Karar:**
+1. **Birincil ölçüt:** En iyi kural "100 epoch, en yüksek val acc" (holdout %99.13). 10 epoch dışındaki 9 kural eşiğin içinde.
+2. **Early stopping kuralları tercih edilir.** Dört early stopping kuralının dördü de eşiğin içinde.
+3. **En hızlısı:** Val acc ile patience 5 (4.3 sn), hemen ardından val loss ile patience 5 (4.4 sn).
+4. **Süre bu iki kuralı ayırt etmiyor.**
+   - 0.1 sn'lik fark, tek bir seed'in 2 epoch erken durmasından geliyor. Seed'ler arasındaki oynama ±1.5 sn.
+   - Bölüm 5.0'ın 6. kuralına göre ayırt edilemeyen seçeneklerde mevcut ayarda kalınıyor. Mevcut seçim ölçütü val loss.
+   - Kodun ilk hâli bu durumu öngörmemişti ve mekanik olarak 0.1 sn hızlı olan val acc kuralını seçti. Bu yüzden seçim fonksiyonuna, **sonuçlar görüldükten sonra**, şu adım eklendi: süre farkı seed'ler arasındaki standart sapmadan küçükse, mevcut ölçütü kullanan en hızlı kural seçilir (`choose_policy`).
+   - Diğer göstergeler de aynı yönde: holdout'ta val loss kuralı biraz yüksek ve seed'ler arasında daha kararlı (%99.04 ± 0.07'ye karşı %98.98 ± 0.16). Ön denemede de val acc kuralı erken durup anlamlı şekilde kötü kalmıştı.
+5. **Seçilen: early stopping, val loss, patience 5, en fazla 100 epoch.** Val loss 5 epoch üst üste iyileşmezse eğitim durur ve en düşük val loss'lu epoch'un modeli alınır.
+   - **Sabit 20 epoch (mevcut) seçilmedi:** Eşiğin içinde ve daha hızlı (2.8 sn). Ama sabit bir epoch sayısı, Bölüm 6'daki farklı ayarlara uyum sağlamaz (karar kuralının 2. adımı). Holdout loss'u da daha yüksek (0.0348'e karşı 0.0333). Ön denemede 0.32 puanla eşiğin dışındaydı.
+   - **Sabit 40 ve 100 epoch seçilmedi:** Doğrulukta eşit, ama sabit; 100 epoch ~3 kat uzun sürüyor.
+   - **Patience 10 seçilmedi:** Eşit derecede iyi, ama daha uzun sürüyor (5.4 sn).
+   - **Val acc ölçütü seçilmedi:** Holdout'ta daha iyi bir model bulmuyor ve kendi seçtiği veride daha iyimser.
+
+**4A'nın sonucu: Deney 1'den buraya.** Sekiz kararın hepsi birlikte:
+
+| | Deney 1 (baseline) | 4A'nın sonucu |
+|---|---|---|
+| Girdi normalizasyonu | Standardizasyon | Standardizasyon |
+| Loss | Cross-entropy | Cross-entropy |
+| Optimizer | Adam, lr = 0.001 | Momentumlu SGD (0.9), lr = 0.08 |
+| Mimari | 256 → 128 | 256 → 256 |
+| Aktivasyon | ReLU | ReLU |
+| Batch boyutu | 64 | 512 |
+| Regularization | Yok | Veri artırma (hafif) |
+| Eğitim kuralı | 20 epoch, en düşük val loss | Early stopping (val loss, patience 5), en fazla 100 epoch |
+| Validation accuracy | %97.83 ± 0.21 | %99.04 ± 0.07 (holdout yarısı) |
+| Eğitim süresi | ~16.5 sn | ~4.4 sn |
+
+Doğruluk ~1.2 puan arttı, eğitim süresi ~4 kat kısaldı. Kazancın büyük kısmı veri artırmadan (Bölüm 5.7), hızın büyük kısmı batch boyutundan (Bölüm 5.6) geliyor.
+
+**Sınırlar:**
+- Kurallar yalnızca bu tek ayarda karşılaştırıldı. Patience 5, gürültüsü daha büyük ayarlarda erken durabilir; Bölüm 6'da aynı kural bütün denemelere uygulanacak.
+- 3 seed ve 5 000 görüntülük yarılarla 0.1 puanlık farklar gürültü düzeyinde; holdout standart sapmaları 0.17'ye kadar çıkıyor.
+- Seçim adımlarından biri (süre farkının anlamlı sayılmaması) sonuçlar görüldükten sonra eklendi. Bu adım olmasa seçilecek kural (val acc, patience 5) da eşiğin içindeydi; iki kural bu çalıştırmada üç seed'in ikisinde birebir aynı sonucu verdi.
 
 ## 6. Ortak Hiperparametre Araması
 _(Aşama 4B–4C'de doldurulacak)_

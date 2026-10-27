@@ -77,7 +77,7 @@ def evaluate_policies(results, policies=POLICIES):
     return rows
 
 
-def choose_policy(rows, tolerance):
+def choose_policy(rows, tolerance, current="val_loss"):
     """Kural seçimi (sonuçlardan önce belirlendi).
 
     1. Birincil ölçüt holdout accuracy. En iyisine eşikten (0.3 puan) yakın kurallar eşit derecede iyi sayılır.
@@ -85,11 +85,20 @@ def choose_policy(rows, tolerance):
        stopping kuralları tercih edilir; sabit epoch sayısı yalnızca bu ayar için doğru olabilir.
     3. Eşit derecede iyi early stopping kurallarından en kısa sürede biten seçilir.
     Hiçbir early stopping kuralı eşiğin içinde değilse, eşik içindeki en hızlı kural seçilir.
+
+    Sonuçlar görüldükten sonra eklenen adım (README 5.8): Süre farkı seed'ler arasındaki oynamadan (en hızlı
+    kuralın süresinin standart sapması) küçükse süre ayırt edici sayılmaz. Bu durumda mevcut seçim ölçütünü
+    (current) kullanan en hızlı kural seçilir (Bölüm 5.0, kural 6: ayırt edilemeyen seçeneklerde mevcut ayarda
+    kalınır).
     """
     top = max(row["holdout_acc"][0] for row in rows)
     good = [row for row in rows if top - row["holdout_acc"][0] < tolerance]
     adaptive = [row for row in good if row["patience"] is not None]
-    return min(adaptive or good, key=lambda row: row["seconds"][0])
+    candidates = adaptive or good
+    fastest = min(candidates, key=lambda row: row["seconds"][0])
+    tied = [row for row in candidates if row["seconds"][0] - fastest["seconds"][0] < fastest["seconds"][1]]
+    preferred = [row for row in tied if row["criterion"] == current] or tied
+    return min(preferred, key=lambda row: row["seconds"][0])
 
 
 def policy_table(rows):
