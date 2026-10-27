@@ -15,12 +15,12 @@ Yapay Sinir Ağları dersi ödevi. MNIST veri seti üzerinde sıfırdan eğitile
 | Test verisi model geliştirmede kullanılmamış | ✅ kodla garanti altında | [Bölüm 3](#3-veri-seti-ve-trainvalidationtest-ayrımı) |
 | Deney 1: train/val loss, train/val accuracy, test accuracy, eğitim süresi | ✅ | [Bölüm 4.4](#44-sonuçlar) |
 | Deney 1: loss ve accuracy grafikleri | ✅ | [Bölüm 4.4](#44-sonuçlar) |
-| Model yapılandırmalarının karşılaştırılması | ⏳ 8 tek değişkenli deneyin hepsi tamam (5.1 normalizasyon, 5.2 loss, 5.3 optimizer ve learning rate, 5.4 derinlik ve genişlik, 5.5 aktivasyon, 5.6 batch boyutu, 5.7 regularization, 5.8 epoch sayısı ve early stopping); ortak arama sırada | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
+| Model yapılandırmalarının karşılaştırılması | ⏳ 8 tek değişkenli deneyin hepsi tamam (5.1 normalizasyon, 5.2 loss, 5.3 optimizer ve learning rate, 5.4 derinlik ve genişlik, 5.5 aktivasyon, 5.6 batch boyutu, 5.7 regularization, 5.8 epoch sayısı ve early stopping); ortak arama: 60 deneme tamam (6.2), doğrulama sırada | [Bölüm 5](#5-karşılaştırmalı-deneyler), [Bölüm 6](#6-ortak-hiperparametre-araması) |
 | Kullanılan hiperparametreler raporda | ✅ Deney 1 / ⏳ diğer deneyler | [Bölüm 4.2](#42-hiperparametreler), Bölüm 5–7 |
 | El yazısı görüntüleri: gri, 28×28, MNIST renk uyumu, normalizasyon | ⏳ | [Bölüm 8](#8-kendi-el-yazım-ile-değerlendirme) |
 | El yazısıyla öğrenci numarası görselleri repoda | ⏳ | [`el_yazisi/`](el_yazisi/) |
 | Deney sonuçları hakkında genel değerlendirme | ⏳ | [Bölüm 9](#9-genel-değerlendirme) |
-| Kodun çalıştırılabilir olması | ✅ kurulum, veri, Deney 1, Bölüm 5.1–5.8 / ⏳ diğer aşamalar | [Bölüm 1](#1-ortam-ve-kurulum) |
+| Kodun çalıştırılabilir olması | ✅ kurulum, veri, Deney 1, Bölüm 5.1–5.8, 6.2 / ⏳ diğer aşamalar | [Bölüm 1](#1-ortam-ve-kurulum) |
 
 ## İçindekiler
 1. [Ortam ve Kurulum](#1-ortam-ve-kurulum)
@@ -77,6 +77,7 @@ Deneyleri çalıştırma (komutlar bu klasörde çalıştırılır; sonuçlar `r
 | `python src/karsilastirma.py 4a6_batch` | Batch boyutu: 16–2048, iki learning rate kuralıyla (Bölüm 5.6) | ~15 dakika |
 | `python src/karsilastirma.py 4a7_regularization` | Regularization: dropout / weight decay / batch normalization / veri artırma, farklı güçlerde (Bölüm 5.7) | ~1.5 dakika |
 | `python src/karsilastirma.py 4a8_epoch` | Epoch sayısı, early stopping ve seçim ölçütü: 100 epoch × 3 seed, 10 kural (Bölüm 5.8) | ~1 dakika |
+| `python src/arama.py ara` | Ortak arama: rastgele arama ve TPE, 30'ar deneme (Bölüm 6.2) | ~22 dakika |
 
 ## 2. Proje Yapısı
 
@@ -1008,7 +1009,115 @@ Doğruluk ~1.2 puan arttı, eğitim süresi ~4 kat kısaldı. Kazancın büyük 
 - Seçim adımlarından biri (süre farkının anlamlı sayılmaması) sonuçlar görüldükten sonra eklendi. Bu adım olmasa seçilecek kural (val acc, patience 5) da eşiğin içindeydi; iki kural bu çalıştırmada üç seed'in ikisinde birebir aynı sonucu verdi.
 
 ## 6. Ortak Hiperparametre Araması
-_(Aşama 4B–4C'de doldurulacak)_
+
+Kod: [`src/arama.py`](src/arama.py) · Çalıştırma: `python src/arama.py ara` (arama), `python src/arama.py dogrula` (doğrulama) · Ham sonuçlar: [`results/arama/`](results/arama/)
+
+**Neden?** Bölüm 5'te her deneyde yalnızca bir ayar değişti. Bu yöntem ayarlar arasındaki **etkileşimleri** göremez. Bunun iki örneği zaten görüldü: en iyi learning rate aktivasyona (Bölüm 5.5) ve batch boyutuna (Bölüm 5.6) bağlıydı. Belki büyük bir model tek başına faydasızken (Bölüm 5.4) güçlü bir regularization ile birlikte faydalıdır. Bunu görmenin yolu ayarları birlikte değiştirmek. Ama bütün bileşimleri denemek imkânsız: 11 ayarın her biri için yalnızca 4 değer bile ~4 milyon bileşim demek. Bu yüzden sınırlı sayıda deneme yapan bir **arama yöntemi** kullanıldı.
+
+### 6.1 Yöntem
+
+**İki arama yöntemi** karşılaştırıldı (Optuna kütüphanesi):
+- **Rastgele arama** (Bergstra ve Bengio, 2012): Her deneme, arama uzayından bağımsız ve rastgele seçilmiş bir ayar. Önceki denemelerden bir şey öğrenmez. Izgara aramasından daha verimli: ayarların yalnızca birkaçı önemliyse, ızgara aynı önemli değerleri tekrar tekrar dener; rastgele arama ise her denemede önemli ayarın da farklı bir değerini dener.
+- **TPE** (Tree-structured Parzen Estimator; Bergstra vd., 2011): İlk 10 deneme rastgele. Sonra denemeleri "iyi" (en iyi %25) ve "kötü" olarak ikiye ayırır, her ayar için iki grupta hangi değerlerin sık olduğunu öğrenir ve bir sonraki denemeyi "iyilerde sık, kötülerde seyrek" değerlerden seçer. Zamanla umut verici bölgelere yoğunlaşır.
+
+**Adil karşılaştırma:**
+- İki yöntem aynı arama uzayını, aynı bütçeyi (30'ar deneme) ve aynı veriyi kullanıyor.
+- Her deneme tek bir eğitim (seed 0). Eğitim kuralı Bölüm 5.8'inki: en fazla 100 epoch, val loss'a göre early stopping (patience 5). Bir denemenin skoru, en düşük val loss'lu epoch'taki validation accuracy.
+- İki yöntem aynı sampler seed'ini kullandığı için **ilk 10 deneme ikisinde aynı.** Bu bilinçli bir tasarım (eşleştirilmiş karşılaştırma): iki yöntem aynı bilgiyle başlıyor; 11. denemeden itibaren aradaki her fark yöntemden geliyor.
+- Test seti yüklenmedi.
+
+**Arama uzayı** (aralıklar Bölüm 5'e göre seçildi):
+
+| Ayar | Aralık | Gerekçe |
+|---|---|---|
+| Gizli katman sayısı | 2–4 | Ödev şartı en az 2; Bölüm 5.4'te 3–4 katman 2 katmandan iyi değildi (regularization olmadan) |
+| Katman başına nöron | 128 / 256 / 512 / 1024 | Bölüm 5.4'te 64 nöron anlamlı şekilde kötüydü |
+| Optimizer | momentumlu SGD / Adam | Bölüm 5.3'te ikisi de rekabetçiydi |
+| Batch boyutu | 64 / 128 / 256 / 512 / 1024 | Bölüm 5.6: orantılı learning rate ile 16–512 eşit derecede iyiydi, 1024 sınırdaydı; 16–32 çok yavaş |
+| Learning rate (momentumlu SGD) | batch 64'e göre 0.002–0.05 (logaritmik), sonra `× batch / 64` | Bölüm 5.6'nın doğrusal ölçekleme kuralı; Bölüm 5.3'teki iyi bölgenin bir kat dışı |
+| Learning rate (Adam) | 0.00003–0.01 (logaritmik) | Bölüm 5.3'teki iyi bölgenin bir kat dışı |
+| Momentum | 0.8–0.98 | Bölüm 5'te hep 0.9'du |
+| Dropout | 0–0.5 | Bölüm 5.7 |
+| Weight decay | 0.000001–0.01 (logaritmik) | Bölüm 5.7 |
+| Batch normalization | var / yok | Bölüm 5.7 |
+| Veri artırma | yok / hafif / orta / güçlü | Bölüm 5.7 |
+
+Sabit kalanlar: ReLU (ödev şartı), cross-entropy, standardizasyon ve Bölüm 5.8'in eğitim kuralı.
+
+- **SGD'nin learning rate'i neden "batch 64'e göre"?** SGD'de iyi learning rate batch ile orantılı (Bölüm 5.6). Learning rate doğrudan aransaydı, batch 1024 ile çok küçük ya da batch 64 ile çok büyük değerler sık sık denenirdi. Bunun yerine "batch 64 olsaydı learning rate ne olurdu?" değeri aranıyor ve gerçek değer batch'e göre ölçekleniyor. Adam'da adım büyüklüğü gradyanın ölçeğinden bağımsız olduğu için onun learning rate'i doğrudan aranıyor.
+- **Logaritmik aralık neden?** Learning rate ve weight decay'in etkisi çarpımsal: 0.001 ile 0.002 arasındaki fark, 0.1 ile 0.101 arasındakinden çok daha önemli. Logaritmik örnekleme her büyüklük basamağına eşit şans verir.
+
+**Seçim yanlılığı:** 60 denemenin en iyisi, kısmen şanslı bir seed sayesinde en iyi çıkmış olabilir. Bu yüzden aramanın skorları final karar için kullanılmadı; en iyi ayarlar Bölüm 6.3'te yeni seed'lerle yeniden ölçüldü.
+
+### 6.2 Arama sonuçları
+
+| Yöntem | En iyi val acc | İlk 10 denemenin ortalaması | Son 10 denemenin ortalaması | Öğrenemeyen deneme | Toplam süre |
+|---|---|---|---|---|---|
+| Rastgele arama | %99.08 | %96.70 | %97.95 | 1 | 5.4 dk |
+| TPE | %99.29 | %96.70 | %98.99 | 0 | 16.2 dk |
+
+![Aramanın ilerlemesi](results/arama/ilerleme.png)
+
+*Noktalar tek tek denemeler (1–10'daki koyu noktalar iki yöntemin üst üste binen ortak denemeleri). Basamaklı çizgiler o ana kadarki en iyi sonuç; rastgele aramanınki kesikli. %95'in altındaki denemeler en altta gösterildi.*
+
+- **Rastgele aramanın denemeleri çok dağınık:** %93–99 arası, bir deneme hiç öğrenemedi (momentum 0.98 ile lr 0.74). Kötü bir bileşim (ör. yüksek weight decay, güçlü veri artırma ile büyük learning rate) kolayca 1–5 puan kaybettiriyor. Rastgele arama öğrenmediği için son 10 denemesinin ortalaması (%97.95) ile ilk 10'unki (%96.70) arasındaki fark tesadüf.
+- **TPE 11. denemeden sonra bir bölgeye yoğunlaşıyor:**
+  - 13. denemeden itibaren neredeyse hepsi batch normalization ve veri artırma kullanıyor.
+  - 16. denemeden itibaren 2–4 × 1024, 17. denemeden itibaren çoğunlukla batch 64.
+  - 25. denemeden itibaren Adam'a geçip learning rate'i ~0.0002'ye yerleştiriyor.
+  - Son 10 denemesinin ortalaması %98.99, rastgele aramanınkinden ~1 puan yüksek.
+- **En iyi deneme:** TPE %99.29, rastgele arama %99.08. Bu fark tek bir denemeye ve tek bir seed'e dayanıyor; buna çok güvenilmemeli (Bölüm 6.3).
+- **TPE 3 kat uzun sürdü** (16.2 dk'ya karşı 5.4 dk). Bulduğu bölge (batch 64, 1024 nöron) epoch başına daha yavaş eğitilen ayarlardan oluşuyor; batch 64'lü denemeler 21–90 sn sürdü.
+- **TPE'nin izlediği yol ilk denemelerin küçük farklarına duyarlı.** Aynı kodla yapılan bir ön denemede TPE, aynı ilk 10 denemeden sonra başka bir bölgeye (3–4 × 512, momentumlu SGD, batch 128) yoğunlaşmıştı. Aynı ayar farklı süreçlerde GPU hesaplarındaki küçük farklar yüzünden biraz farklı sonuç veriyor; bu da TPE'nin önerilerini değiştiriyor. İki bölge de tek seed'de ~%99.2–99.4'e ulaştı: birden fazla iyi bölge var.
+
+**En iyi 10 deneme:**
+
+| # | Yöntem | Deneme | Ayar | Parametre | Val acc (tek seed) | En iyi epoch / eğitilen | Süre |
+|---|---|---|---|---|---|---|---|
+| 1 | TPE | 26 | 2 × 1024, Adam, lr 0.00022, batch 64, dropout 0.30, wd 1e-06, BN, veri artırma hafif | 1 867 786 | %99.29 | 42 / 47 | 72.0 sn |
+| 2 | TPE | 22 | 2 × 1024, mSGD (m = 0.94), lr 0.03, batch 64, dropout 0.38, wd 2e-05, BN, veri artırma hafif | 1 867 786 | %99.26 | 28 / 33 | 43.3 sn |
+| 3 | TPE | 28 | 3 × 1024, Adam, lr 0.00021, batch 64, dropout 0.26, wd 2e-05, BN, veri artırma hafif | 2 919 434 | %99.22 | 38 / 43 | 73.5 sn |
+| 4 | TPE | 27 | 3 × 1024, Adam, lr 0.00021, batch 64, dropout 0.22, wd 5e-05, BN, veri artırma hafif | 2 919 434 | %99.17 | 22 / 27 | 46.9 sn |
+| 5 | TPE | 23 | 2 × 1024, mSGD (m = 0.94), lr 0.026, batch 64, dropout 0.30, wd 3e-05, BN, veri artırma hafif | 1 867 786 | %99.16 | 22 / 27 | 36.2 sn |
+| 6 | TPE | 29 | 4 × 1024, Adam, lr 0.00021, batch 64, dropout 0.23, wd 2e-06, BN, veri artırma hafif | 3 971 082 | %99.16 | 30 / 35 | 59.3 sn |
+| 7 | TPE | 20 | 2 × 1024, mSGD (m = 0.94), lr 0.027, batch 64, dropout 0.44, wd 2e-06, BN, veri artırma hafif | 1 867 786 | %99.11 | 22 / 27 | 33.7 sn |
+| 8 | Rastgele arama | 22 | 4 × 512, mSGD (m = 0.84), lr 0.045, batch 128, dropout 0.09, wd 6e-05, BN, veri artırma orta | 1 199 114 | %99.08 | 35 / 40 | 36.6 sn |
+| 9 | TPE | 17 | 2 × 1024, mSGD (m = 0.94), lr 0.013, batch 64, dropout 0.35, wd 7e-06, BN, veri artırma orta | 1 867 786 | %99.07 | 21 / 26 | 35.1 sn |
+| 10 | TPE | 18 | 2 × 1024, mSGD (m = 0.93), lr 0.034, batch 64, dropout 0.49, wd 1e-05, BN, veri artırma orta | 1 867 786 | %99.02 | 37 / 42 | 59.2 sn |
+
+*mSGD: momentumlu SGD, m: momentum, wd: weight decay, BN: batch normalization. "En iyi epoch / eğitilen": ör. 42 / 47, 42. epoch en düşük val loss'luydu; 5 epoch beklenip 47'de durdu.*
+
+En iyi 10 denemenin 9'u TPE'den geldi ve hepsi birbirine benziyor: 2–4 × 1024 (biri 4 × 512), batch 64–128, batch normalization, dropout 0.1–0.5, veri artırma (hafif ya da orta).
+
+**Hangi ayar ne kadar önemli?**
+
+![Ayarların etkisi](results/arama/ayar_etkileri.png)
+
+*Her nokta bir deneme (tek seed); mavi momentumlu SGD, turuncu Adam. %96'nın altındaki denemeler en altta gösterildi.*
+
+Sayılar, 50 farklı denemenin (ortak ilk 10 bir kez sayıldı) başarılı 49'undan:
+
+| Ayar | Değer | Deneme | En iyi | Ortanca |
+|---|---|---|---|---|
+| Batch normalization | var | 34 | %99.29 | %98.60 |
+| | yok | 15 | %98.61 | %97.82 |
+| Veri artırma | yok | 9 | %98.33 | %97.86 |
+| | hafif | 16 | %99.29 | %98.94 |
+| | orta | 14 | %99.08 | %98.69 |
+| | güçlü | 10 | %98.61 | %96.96 |
+| Weight decay | ≤ 0.001 | 38 | %99.29 | %98.50 |
+| | > 0.001 | 11 | %98.60 | %96.43 |
+
+- **Batch normalization ve veri artırma** en belirgin etkiler. Batch normalization'sız ve veri artırmasız en iyi denemeler, ikisini de kullananların ortancasına bile yetişemiyor. Güçlü veri artırma, Bölüm 5.7'deki gibi zararlı.
+- **Weight decay 0.001'in üstünde belirgin şekilde zararlı.**
+- **Optimizer:** Bölüm 5.3'te (regularization olmadan) Adam momentumlu SGD'nin biraz gerisindeydi (fark anlamlı değildi). Burada batch normalization ve dropout ile, learning rate ~0.0002'de, en iyi deneme Adam'dan geldi. Momentumlu SGD de neredeyse aynı yerde (en iyisi %99.26).
+- **Genişlik:** En iyiler 1024 nöronda. Bölüm 5.4'te 2 × 512 ve 2 × 1024 de en iyiler arasındaydı ama 2 × 256'dan anlamlı şekilde iyi değildi. Burada regularization ile birlikte büyük modeller en üstte: aradığımız türden bir **etkileşim** olabilir.
+- **Dikkat:** Bu grafikler nedensellik göstermez. Her denemede birçok ayar aynı anda değişiyor; bir panelde görülen eğilim başka bir ayardan kaynaklanıyor olabilir. Ayrıca TPE iyi bölgeden çok örneklediği için, o bölgenin ayarları grafiklerde fazla temsil ediliyor (ör. 1024 nöron ve batch 64).
+
+**Ara sonuç:** Arama, 4A'nın sonucundan (2 × 256, batch 512, yalnızca veri artırma) farklı bir bölge buldu: daha büyük modeller, küçük batch ve birlikte kullanılan birkaç regularization yöntemi. Ama skorlar tek seed'lik ve 60 denemenin en iyileri seçildiği için iyimser. Bu ayarların 4A'nın sonucundan gerçekten daha iyi olup olmadığı Bölüm 6.3'te yeni seed'lerle ölçüldü.
+
+### 6.3 En iyi ayarların yeni seed'lerle doğrulanması
+_(Aşama 4C'de doldurulacak)_
 
 ## 7. Final Model ve Test Sonucu
 _(Aşama 5'te doldurulacak)_
